@@ -4,6 +4,37 @@
 
 All notable changes to the mod are recorded here. Newest first.
 
+## [0.1.10] — Installer networking reworked; warnings cleared
+
+### Fixed
+- The installer GUI no longer calls `SendBlockEntityPacket` (whose overloads
+  vary by version and caused CS1503). The install now routes through the mod's
+  own stable network channel: GUI close → `InstallModulePacket` → server
+  handler → `BlockEntityModuleInstaller.TryInstall`. Slot networking is handled
+  entirely by the verified `GuiDialogBlockEntityInventory` base class.
+- The stale pre-fix `BlockModuleInstaller.cs` calling `OnInteract` (CS1061) is
+  superseded; the block now calls `OnPlayerRightClick`. (If your working folder
+  still errors here, an old copy of the file is lingering — replace the whole
+  `src` folder from this zip.)
+- Cleared warnings: `ModuleCode` initialized (CS8618); `VEIntegrationWired`
+  back to `static readonly` (CS0162, reverted again in an intermediate copy);
+  `ModuleRegistry.Get` return type nullable (CS8603).
+
+### Changed
+- Module install now triggers when the installer GUI is closed, rather than via
+  a custom button — the inventory base class does not compose a button, and
+  this avoids unverified GUI-composition calls. The block hint text reflects
+  this ("close to install").
+
+## [0.1.9] — Installer block compile fix
+
+### Fixed
+- `BlockEntityModuleInstaller` now implements the abstract
+  `BlockEntityOpenableContainer.OnPlayerRightClick(IPlayer, BlockSelection)`
+  (compile error CS0534). Replaced the earlier custom `OnInteract` method with
+  this required override, which opens the installer GUI client-side and clears
+  the cached dialog on close. The block forwards its interaction to it.
+
 ## [0.1.8] — Items, recipes, models, and the Module Installer block
 
 ### Added

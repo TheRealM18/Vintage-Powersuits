@@ -44,7 +44,7 @@ namespace VEPowersuit.Modules
             [NightVision]  = new PowerModule(NightVision, "vepowersuit:module-nightvision", perTick: 5),
         };
 
-        public static PowerModule Get(string code)
+        public static PowerModule? Get(string code)
             => All.TryGetValue(code, out var m) ? m : null;
     }
 }

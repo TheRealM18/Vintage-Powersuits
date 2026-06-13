@@ -21,6 +21,18 @@ namespace VEPowersuit
         private IServerNetworkChannel serverChannel;
         private IClientNetworkChannel clientChannel;
 
+        // Static client-channel ref so block entities (which don't hold the mod
+        // system instance) can send the install request through our own stable
+        // network channel rather than the version-finicky block-entity packet API.
+        private static IClientNetworkChannel staticClientChannel;
+
+        /// <summary>Called from the installer block's GUI to request an install.</summary>
+        public static void SendInstall(Vintagestory.API.Client.ICoreClientAPI capi,
+            Vintagestory.API.MathTools.BlockPos pos)
+        {
+            staticClientChannel?.SendPacket(new InstallModulePacket { X = pos.X, Y = pos.Y, Z = pos.Z });
+        }
+
         // Tracks players currently flying via power armor (server-authoritative).
         private readonly HashSet<string> flyingPlayers = new();
 
@@ -43,8 +55,10 @@ namespace VEPowersuit
                 .RegisterMessageType<ToggleModulePacket>()
                 .RegisterMessageType<ToggleFlightPacket>()
                 .RegisterMessageType<EnergySyncPacket>()
+                .RegisterMessageType<InstallModulePacket>()
                 .SetMessageHandler<ToggleModulePacket>(OnToggleModule)
-                .SetMessageHandler<ToggleFlightPacket>(OnToggleFlight);
+                .SetMessageHandler<ToggleFlightPacket>(OnToggleFlight)
+                .SetMessageHandler<InstallModulePacket>(OnInstallModule);
 
             // 1Hz drain/maintenance tick.
             api.Event.RegisterGameTickListener(OnServerTick, 1000);
@@ -161,6 +175,26 @@ namespace VEPowersuit
             slot.MarkDirty();
         }
 
+        private void OnInstallModule(IServerPlayer player, InstallModulePacket packet)
+        {
+            var pos = new Vintagestory.API.MathTools.BlockPos(packet.X, packet.Y, packet.Z);
+            // Basic sanity: only allow if the player is reasonably near the block.
+            if (player.Entity != null)
+            {
+                var p = player.Entity.Pos;
+                double dx = p.X - (packet.X + 0.5);
+                double dy = p.Y - (packet.Y + 0.5);
+                double dz = p.Z - (packet.Z + 0.5);
+                if (dx * dx + dy * dy + dz * dz > 12 * 12) return;
+            }
+
+            if (sapi.World.BlockAccessor.GetBlockEntity(pos)
+                is Blocks.BlockEntityModuleInstaller be)
+            {
+                be.TryInstall(out _);
+            }
+        }
+
         private void SyncEnergy(IPlayer player, ItemStack stack, bool flying)
         {
             if (player is IServerPlayer sp)
@@ -184,7 +218,9 @@ namespace VEPowersuit
                 .RegisterMessageType<ToggleModulePacket>()
                 .RegisterMessageType<ToggleFlightPacket>()
                 .RegisterMessageType<EnergySyncPacket>()
+                .RegisterMessageType<InstallModulePacket>()
                 .SetMessageHandler<EnergySyncPacket>(OnEnergySync);
+            staticClientChannel = clientChannel;
 
             api.Input.RegisterHotKey("vepowersuit_flight", Lang.Get("vepowersuit:hotkey-flight"),
                 GlKeys.R, HotkeyType.CharacterControls);

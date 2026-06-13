@@ -81,25 +81,16 @@ namespace VEPowersuit.Blocks
             return true;
         }
 
-        public override void OnReceivedClientPacket(IPlayer player, int packetid, byte[] data)
-        {
-            if (packetid == 1001) // install request
-            {
-                TryInstall(out _);
-                return;
-            }
-            base.OnReceivedClientPacket(player, packetid, data);
-        }
-
         public override bool OnPlayerRightClick(IPlayer byPlayer, BlockSelection blockSel)
         {
             if (Api.Side == EnumAppSide.Client)
             {
                 if (clientDialog == null)
                 {
+                    var capi = Api as Vintagestory.API.Client.ICoreClientAPI;
                     clientDialog = new GuiDialogModuleInstaller(
-                        Lang.Get("vepowersuit:installer-title"), inventory, Pos,
-                        Api as Vintagestory.API.Client.ICoreClientAPI, this);
+                        Lang.Get("vepowersuit:installer-title"), inventory, Pos, capi,
+                        () => VEPowersuitModSystem.SendInstall(capi, Pos));
                     clientDialog.OnClosed += () => clientDialog = null;
                 }
                 clientDialog.TryOpen();

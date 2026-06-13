@@ -15,7 +15,7 @@ namespace VEPowersuit.Blocks
             if (world.BlockAccessor.GetBlockEntity(blockSel.Position)
                 is BlockEntityModuleInstaller be)
             {
-                return be.OnInteract(byPlayer);
+                return be.OnPlayerRightClick(byPlayer, blockSel);
             }
             return base.OnBlockInteractStart(world, byPlayer, blockSel);
         }

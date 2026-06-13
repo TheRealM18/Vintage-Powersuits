@@ -1,11 +1,12 @@
 using ProtoBuf;
+using Vintagestory.API.MathTools;
 
 namespace VEPowersuit.Network
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
     public class ToggleModulePacket
     {
-        public string ModuleCode;
+        public string ModuleCode = "";
     }
 
     [ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
@@ -21,5 +22,14 @@ namespace VEPowersuit.Network
         public int Energy;
         public int MaxEnergy;
         public bool Flying;
+    }
+
+    /// <summary>Client -> server: request the installer block at Pos to install its module.</summary>
+    [ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
+    public class InstallModulePacket
+    {
+        public int X;
+        public int Y;
+        public int Z;
     }
 }

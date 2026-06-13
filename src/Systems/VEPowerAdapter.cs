@@ -38,7 +38,9 @@ namespace VEPowersuit.Systems
     public static class VEPowerAdapter
     {
         // Set true once you've confirmed the VE calls below are correct.
-        public const bool VEIntegrationWired = false;
+        // static readonly (not const) so the compiler doesn't flag the
+        // guard-clause returns below as unreachable code while this is false.
+        public static readonly bool VEIntegrationWired = false;
 
         /// <summary>
         /// Try to pull up to maxEnergy units from a VE power source represented
