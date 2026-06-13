@@ -1,6 +1,18 @@
 {
   "code": "vepowersuit-boots",
   "class": "VEPowersuit",
+	"variantgroups": [
+		{ 
+		"code": "bodypart",
+		"states": [
+			"legs"
+		]},
+		{ 
+		"code": "construct",
+		"states": [
+			"vepowersuit"
+		]}
+	],
   "maxstacksize": 1,
   "durability": 1600,
   "attributes": {

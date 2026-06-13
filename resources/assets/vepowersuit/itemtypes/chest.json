@@ -1,6 +1,18 @@
 {
   "code": "vepowersuit-chest",
   "class": "VEPowersuit",
+	"variantgroups": [
+		{ 
+		"code": "bodypart",
+		"states": [
+			"body"
+		]},
+		{ 
+		"code": "construct",
+		"states": [
+			"vepowersuit"
+		]}
+	],
   "maxstacksize": 1,
   "durability": 2400,
   "attributes": {
@@ -18,7 +30,8 @@
       "walkSpeed": -0.10,
       "healingeffectivness": -0.05
     },
-    "clothescategory": "body",
+    "clothescategory": "bodyarmor",
+    "wearableAttachment": true,
     "attachShape": { "base": "game:entity/humanoid/seraph/armor/plate/body" }
   },
   "behaviors": [

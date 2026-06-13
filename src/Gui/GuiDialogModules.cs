@@ -27,8 +27,18 @@ namespace VEPowersuit.Gui
 
         private void ComposeDialog()
         {
-            var rows = ModuleRegistry.All.Count;
-            ElementBounds bgBounds = ElementBounds.Fill.WithFixedPadding(GuiStyle.ElementToDialogPadding);
+            if (ModuleRegistry.All.Count == 0) return; // nothing to show yet
+
+            double rowHeight = 32;
+            double padding    = GuiStyle.ElementToDialogPadding;
+            double innerW     = 220;
+            double innerH     = ModuleRegistry.All.Count * rowHeight - (rowHeight - 25); // last row has no gap
+
+            // Explicit fixed inner bounds — never zero
+            ElementBounds bgBounds =
+                ElementBounds.Fixed(0, 0, innerW + padding * 2, innerH + 40 + padding * 2)
+                            .WithFixedPadding(padding);
+
             ElementBounds dialogBounds = ElementStdBounds.AutosizedMainDialog;
 
             var composer = capi.Gui.CreateCompo("vepowersuitmodules", dialogBounds)
@@ -44,9 +54,9 @@ namespace VEPowersuit.Gui
                     Lang.Get(kv.Value.DisplayLangKey),
                     CairoFont.WhiteSmallText(),
                     on => OnToggle(code),
-                    ElementBounds.Fixed(0, y, 220, 25),
+                    ElementBounds.Fixed(0, y, innerW, 25),
                     "btn-" + code);
-                y += 32;
+                y += rowHeight;
             }
 
             composer.EndChildElements();

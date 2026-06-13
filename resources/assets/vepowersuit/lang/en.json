@@ -25,5 +25,6 @@
   "vepowersuit:installer-armorslot": "Armor",
   "vepowersuit:installer-moduleslot": "Module",
   "vepowersuit:installer-install": "Install Module",
-  "vepowersuit:installer-hint": "Insert a powersuit piece and a module, then close to install."
+  "vepowersuit:installer-hint": "Insert a powersuit piece and a module, then close to install.",
+  "game:tabname-vepowersuit": "VE Powersuit"
 }

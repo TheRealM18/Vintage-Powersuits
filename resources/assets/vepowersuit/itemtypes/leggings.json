@@ -1,6 +1,18 @@
 {
   "code": "vepowersuit-legs",
   "class": "VEPowersuit",
+	"variantgroups": [
+		{ 
+		"code": "bodypart",
+		"states": [
+			"legs"
+		]},
+		{ 
+		"code": "construct",
+		"states": [
+			"vepowersuit"
+		]}
+	],
   "maxstacksize": 1,
   "durability": 2000,
   "attributes": {
@@ -8,7 +20,8 @@
     "maxEnergy": 80000,
     "defaultModules": ["jumpassist"],
     "protectionModifiers": { "relativeProtection": 0.45, "flatDamageReduction": 2.0, "protectionTier": 3, "perTierRelativeProtectionLoss": 0.15, "perTierFlatDamageReductionLoss": 0.5 },
-    "clothescategory": "legs",
+    "clothescategory": "legsarmor",
+    "wearableAttachment": true,
     "attachShape": { "base": "game:entity/humanoid/seraph/armor/plate/legs" }
   },
   "behaviors": [ { "name": "Wearable" } ],
