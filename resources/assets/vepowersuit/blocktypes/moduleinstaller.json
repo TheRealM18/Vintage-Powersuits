@@ -1,0 +1,20 @@
+{
+  "code": "moduleinstaller",
+  "class": "VEPowersuitModuleInstaller",
+  "entityClass": "VEPowersuitModuleInstaller",
+  "creativeinventory": { "general": ["*"], "vepowersuit": ["*"] },
+  "shape": { "base": "block/basic/cube" },
+  "textures": {
+    "all": { "base": "vepowersuit:block/installer_side" },
+    "north": { "base": "vepowersuit:block/installer_front" },
+    "up": { "base": "vepowersuit:block/installer_top" }
+  },
+  "blockmaterial": "Metal",
+  "resistance": 4.5,
+  "sounds": { "place": "game:block/anvil", "break": "game:block/metal" },
+  "maxstacksize": 8,
+  "sideopaque": { "all": true },
+  "sidesolid": { "all": true },
+  "lightAbsorption": 0,
+  "guiTransform": { "rotate": true, "scale": 1.6 }
+}

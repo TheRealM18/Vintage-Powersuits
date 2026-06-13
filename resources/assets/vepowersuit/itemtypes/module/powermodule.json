@@ -1,0 +1,14 @@
+{
+  "code": "powermodule",
+  "variantgroups": [
+    { "code": "type", "states": ["flight", "sprintassist", "jumpassist", "falldamage", "nightvision"] }
+  ],
+  "maxstacksize": 16,
+  "attributes": {
+    "moduleCode": "{type}"
+  },
+  "creativeinventory": { "general": ["*"], "items": ["*"], "vepowersuit": ["*"] },
+  "texture": { "base": "vepowersuit:item/module" },
+  "shape": { "base": "game:item/empty" },
+  "guiTransform": { "rotate": false, "scale": 2.4 }
+}

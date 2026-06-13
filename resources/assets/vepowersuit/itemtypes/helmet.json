@@ -1,0 +1,21 @@
+{
+  "code": "vepowersuit-helmet",
+  "class": "VEPowersuit",
+  "maxstacksize": 1,
+  "durability": 1600,
+  "attributes": {
+    "isCore": false,
+    "maxEnergy": 60000,
+    "defaultModules": ["nightvision"],
+    "protectionModifiers": { "relativeProtection": 0.40, "flatDamageReduction": 1.5, "protectionTier": 3, "perTierRelativeProtectionLoss": 0.15, "perTierFlatDamageReductionLoss": 0.5 },
+    "clothescategory": "head",
+    "attachShape": { "base": "game:entity/humanoid/seraph/armor/plate/head" }
+  },
+  "behaviors": [ { "name": "Wearable" } ],
+  "wearableSlots": ["head"],
+  "wearableArmor": { "head": true },
+  "creativeinventory": { "general": ["*"], "items": ["*"], "vepowersuit": ["*"] },
+  "texture": { "base": "vepowersuit:item/helmet" },
+  "shape": { "base": "game:item/empty" },
+  "guiTransform": { "rotate": false, "scale": 2.5 }
+}

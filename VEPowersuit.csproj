@@ -1,0 +1,90 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>VEPowersuit</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+
+    <!-- GAME INSTALL FOLDER (engine DLLs + bundled mods VSSurvivalMod/VSEssentials).
+         Prefers the VINTAGE_STORY env var; falls back to the default install path.
+         This is the AppData\Roaming\Vintagestory folder (NOT VintagestoryData). -->
+    <VintageStoryPath Condition="'$(VINTAGE_STORY)' != ''">$(VINTAGE_STORY)</VintageStoryPath>
+    <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">C:\Users\rober\AppData\Roaming\Vintagestory</VintageStoryPath>
+
+    <!-- DOWNLOADED MODS FOLDER (where Vintage Engineering installs to).
+         This is the VintagestoryData\Mods folder, a DIFFERENT folder from above. -->
+    <VintageStoryDataPath Condition="'$(VintageStoryDataPath)' == ''">C:\Users\rober\AppData\Roaming\VintagestoryData</VintageStoryDataPath>
+
+    <!-- VINTAGE ENGINEERING dll location. VE ships as a ZIP, so its dll is NOT
+         loose on disk by default. Extract vintageengineering.dll from
+         VintagestoryData\Mods\vintageengineering_*.zip and point this at it.
+         Override on the command line if you put it elsewhere:
+           dotnet build -p:VintageEngineeringDll=C:\path\to\vintageengineering.dll -->
+    <VintageEngineeringDll Condition="'$(VintageEngineeringDll)' == ''">$(VintageStoryDataPath)\Mods\vintageengineering.dll</VintageEngineeringDll>
+  </PropertyGroup>
+
+  <Target Name="CheckVintageStory" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(VintageStoryPath)\VintagestoryAPI.dll')"
+           Text="VintagestoryAPI.dll not found at '$(VintageStoryPath)'. Set the VINTAGE_STORY environment variable to your game install folder (the one containing VintagestoryAPI.dll), or edit VintageStoryPath in this .csproj." />
+    <Error Condition="!Exists('$(VintageEngineeringDll)')"
+           Text="vintageengineering.dll not found at '$(VintageEngineeringDll)'. This mod now requires Vintage Engineering. VE ships as a ZIP, so extract vintageengineering.dll from VintagestoryData\Mods\vintageengineering_*.zip and either place it at that path or pass -p:VintageEngineeringDll=C:\full\path\to\vintageengineering.dll to the build." />
+  </Target>
+
+  <ItemGroup>
+    <!-- Core game assemblies -->
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VintageStoryPath)\VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VintagestoryLib">
+      <HintPath>$(VintageStoryPath)\VintagestoryLib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VSSurvivalMod">
+      <HintPath>$(VintageStoryPath)\Mods\VSSurvivalMod.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VSEssentials">
+      <HintPath>$(VintageStoryPath)\Mods\VSEssentials.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(VintageStoryPath)\Lib\protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(VintageStoryPath)\Lib\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- VINTAGE ENGINEERING — required dependency.
+         Uses the VintageEngineeringDll property defined above. The pre-build
+         CheckVintageStory target errors with a clear message if it's missing.
+         Reminder: VE ships zipped, so you must extract vintageengineering.dll
+         from VintagestoryData\Mods\vintageengineering_*.zip to that path. -->
+    <Reference Include="vintageengineering">
+      <HintPath>$(VintageEngineeringDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="resources/**">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Safety net: never compile the pre-rename files if they linger in the
+       working folder. After the rename to VEPowersuit these must not exist;
+       this exclusion prevents the duplicate-namespace build errors if an old
+       copy is left behind. Delete the real files; this is just a guard. -->
+  <ItemGroup>
+    <Compile Remove="src/PowerArmorModSystem.cs" />
+    <Compile Remove="src/Items/ItemPowerArmor.cs" />
+  </ItemGroup>
+
+</Project>

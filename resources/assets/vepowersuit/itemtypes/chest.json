@@ -1,0 +1,33 @@
+{
+  "code": "vepowersuit-chest",
+  "class": "VEPowersuit",
+  "maxstacksize": 1,
+  "durability": 2400,
+  "attributes": {
+    "isCore": true,
+    "maxEnergy": 200000,
+    "defaultModules": ["sprintassist"],
+    "protectionModifiers": {
+      "relativeProtection": 0.55,
+      "flatDamageReduction": 2.5,
+      "protectionTier": 3,
+      "perTierRelativeProtectionLoss": 0.15,
+      "perTierFlatDamageReductionLoss": 0.5
+    },
+    "statModifiers": {
+      "walkSpeed": -0.10,
+      "healingeffectivness": -0.05
+    },
+    "clothescategory": "body",
+    "attachShape": { "base": "game:entity/humanoid/seraph/armor/plate/body" }
+  },
+  "behaviors": [
+    { "name": "Wearable" }
+  ],
+  "wearableSlots": ["chest"],
+  "wearableArmor": { "body": true },
+  "creativeinventory": { "general": ["*"], "items": ["*"], "vepowersuit": ["*"] },
+  "texture": { "base": "vepowersuit:item/chest" },
+  "shape": { "base": "game:item/empty" },
+  "guiTransform": { "rotate": false, "scale": 2.5 }
+}

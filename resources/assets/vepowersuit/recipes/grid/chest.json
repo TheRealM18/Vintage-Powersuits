@@ -1,0 +1,13 @@
+{
+  "ingredientPattern": "PGP,SCS,PMP",
+  "width": 3,
+  "height": 3,
+  "ingredients": {
+    "P": { "type": "item", "code": "game:metalplate-steel" },
+    "G": { "type": "item", "code": "game:gear-temporal" },
+    "S": { "type": "item", "code": "game:ingot-steel" },
+    "C": { "type": "item", "code": "game:metalplate-steel" },
+    "M": { "type": "item", "code": "vepowersuit:powermodule-flight" }
+  },
+  "output": { "type": "item", "code": "vepowersuit:vepowersuit-chest", "quantity": 1 }
+}

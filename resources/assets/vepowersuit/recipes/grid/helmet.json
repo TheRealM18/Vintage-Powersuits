@@ -1,0 +1,10 @@
+{
+  "ingredientPattern": "PPP,PGP,_M_",
+  "width": 3, "height": 3,
+  "ingredients": {
+    "P": { "type": "item", "code": "game:metalplate-steel" },
+    "G": { "type": "item", "code": "game:gear-temporal" },
+    "M": { "type": "item", "code": "vepowersuit:powermodule-nightvision" }
+  },
+  "output": { "type": "item", "code": "vepowersuit:vepowersuit-helmet", "quantity": 1 }
+}

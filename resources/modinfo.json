@@ -1,0 +1,14 @@
+{
+  "type": "code",
+  "modid": "vepowersuit",
+  "name": "Vintage Engineering Powersuit",
+  "authors": [
+    "THeRealM18"
+  ],
+  "description": "Electric power armor for Vintage Engineering. Flight, sprint assist, and modular upgrades inspired by Machine Muse Powersuits.",
+  "version": "0.1.8",
+  "dependencies": {
+    "game": "1.22.3",
+    "vintageengineering": ""
+  }
+}
