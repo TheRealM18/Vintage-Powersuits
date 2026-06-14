@@ -46,5 +46,29 @@ namespace VEPowersuit.Modules
 
         public static PowerModule? Get(string code)
             => All.TryGetValue(code, out var m) ? m : null;
+
+        // ---- Per-module tuning knobs (read by the entity behavior / renderer) ----
+
+        /// <summary>Upward velocity added on an assisted jump (blocks/tick units).</summary>
+        public const double JumpBoostVelocity = 0.26;
+
+        /// <summary>
+        /// Sprint-assist walk-speed bonus (fraction). +40% while sprinting.
+        /// </summary>
+        public const float SprintWalkSpeedBonus = 0.40f;
+
+        /// <summary>
+        /// Fall-damage module: energy spent per point of fall damage negated.
+        /// If the suit can't pay the full cost, it absorbs as much as it can.
+        /// </summary>
+        public const int FallEnergyPerDamage = 8;
+
+        /// <summary>
+        /// Night vision: how strongly to drive the screen brightness (0..1.5).
+        /// </summary>
+        public const float NightVisionStrength = 0.85f;
+
+        /// <summary>Seconds for night vision to fully fade in / out.</summary>
+        public const float NightVisionRampSeconds = 0.6f;
     }
 }

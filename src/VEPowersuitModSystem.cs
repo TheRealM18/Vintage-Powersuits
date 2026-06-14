@@ -22,6 +22,7 @@ namespace VEPowersuit
         private HarmonyLib.Harmony harmony;
         private IServerNetworkChannel serverChannel;
         private IClientNetworkChannel clientChannel;
+        private Systems.NightVisionRenderer nightVision;
 
         // Static client-channel ref so block entities (which don't hold the mod
         // system instance) can send the install request through our own stable
@@ -47,6 +48,11 @@ namespace VEPowersuit
             // Module installer block + its block entity.
             api.RegisterBlockClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockModuleInstaller));
             api.RegisterBlockEntityClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockEntityModuleInstaller));
+
+            // Entity behavior that drives jump-assist and fall-damage negation.
+            // Attached to player entities at runtime (see StartServerSide).
+            api.RegisterEntityBehaviorClass(Behaviors.EntityBehaviorPowerSuit.Name,
+                typeof(Behaviors.EntityBehaviorPowerSuit));
 
             // Patch VE's charger so its IChargeableItem reads bind to the
             // correct per-stack energy while it services our suit.
@@ -80,19 +86,27 @@ namespace VEPowersuit
             // 1Hz drain/maintenance tick.
             api.Event.RegisterGameTickListener(OnServerTick, 1000);
             api.Event.PlayerDisconnect += p => StopFlight(p);
+
+            // Attach the jump/fall behavior to each player when they join.
+            api.Event.PlayerJoin += OnPlayerJoin;
+        }
+
+        private void OnPlayerJoin(IServerPlayer player)
+        {
+            var entity = player?.Entity;
+            if (entity == null) return;
+            if (entity.GetBehavior<Behaviors.EntityBehaviorPowerSuit>() == null)
+            {
+                entity.AddBehavior(new Behaviors.EntityBehaviorPowerSuit(entity));
+            }
         }
 
         private ItemSlot GetChestSlot(IPlayer player)
         {
-            // Body-armor slot. The chestplate is flagged isCore in JSON.
-            var inv = player.InventoryManager.GetOwnInventory(GlobalConstants.characterInvClassName);
-            if (inv == null) return null;
-            foreach (var slot in inv)
-            {
-                if (slot?.Itemstack?.Collectible is ItemVEPowersuit pa && pa.IsCore)
-                    return slot;
-            }
-            return null;
+            // Body-armor slot (the chestplate, flagged isCore in JSON). Shared
+            // with the entity behavior and night-vision renderer via SuitHelper
+            // so all three agree on what the "active suit" is.
+            return SuitHelper.GetCoreSlot(player);
         }
 
         private void OnServerTick(float dt)
@@ -140,7 +154,7 @@ namespace VEPowersuit
                           && EnergyStore.GetEnergy(stack) > 0;
 
             const string statCode = "vepowersuit_sprint";
-            float bonus = active ? 0.40f : 0f; // +40% walk speed while sprinting
+            float bonus = active ? ModuleRegistry.SprintWalkSpeedBonus : 0f;
             player.Entity.Stats.Set("walkspeed", statCode, bonus, true);
         }
 
@@ -246,6 +260,11 @@ namespace VEPowersuit
             api.Input.RegisterHotKey("vepowersuit_gui", Lang.Get("vepowersuit:hotkey-gui"),
                 GlKeys.U, HotkeyType.GUIOrOtherControls);
             api.Input.SetHotKeyHandler("vepowersuit_gui", OnGuiHotkey);
+
+            // Client-side Night Vision driver. Runs before the main opaque pass
+            // each frame so the brightness uniform is set before the world draws.
+            nightVision = new NightVisionRenderer(api);
+            api.Event.RegisterRenderer(nightVision, EnumRenderStage.Before, "vepowersuit-nightvision");
         }
 
         private bool OnFlightHotkey(KeyCombination comb)

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 — All modules now functional
+
+- Jump Assist: rising-edge jump detection adds upward velocity and spends
+  EnergyPerActivation per assisted jump (server-authoritative).
+- Fall Damage Negation: intercepts gravity/fall damage and spends energy
+  (FallEnergyPerDamage per point) to cancel as much as the suit can afford;
+  partial absorption when low on energy.
+- Night Vision: client-side driver ramps the game's built-in NightVisionStrength
+  shader uniform up/down while worn + powered; per-tick energy drain unchanged.
+- Flight and Sprint Assist: unchanged behavior, now share the SuitHelper lookup.
+- New EntityBehaviorPowerSuit attached to players on join (jump + fall logic).
+- New NightVisionRenderer registered in the Before render stage.
+- New SuitHelper centralizes "worn core suit" resolution across all systems.
+- ModuleRegistry gained tuning constants (jump boost, sprint bonus, fall cost,
+  night-vision strength/ramp); EnergyStore gained MaxPPS already in 0.3.0.
+
 ## 0.3.0 — Vintage Engineering power integration
 
 - `ItemVEPowersuit` now implements `VintageEngineering.Electrical.IChargeableItem`.
