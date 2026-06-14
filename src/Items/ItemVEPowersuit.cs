@@ -7,17 +7,6 @@ using Vintagestory.API.Util;
 
 namespace VEPowersuit.Items
 {
-    /// <summary>
-    /// A wearable electric armor piece that carries energy + modules.
-    /// The chestplate is the "core" that the flight/sprint systems look for.
-    ///
-    /// NOTE: This inherits from plain Item, NOT ItemWearable. ItemWearable
-    /// lives in Vintagestory.GameContent and is obsolete in current versions
-    /// (replaced by the Wearable collectible behavior). The wearable mechanics
-    /// — slot placement, armor protection, stat modifiers — come from the
-    /// { "name": "Wearable" } entry in each piece's itemtype JSON, so the C#
-    /// class only needs to add our custom energy/module logic on top of Item.
-    /// </summary>
     public class ItemVEPowersuit : Item
     {
         public bool IsCore => Attributes?["isCore"]?.AsBool(false) ?? false;
@@ -27,27 +16,39 @@ namespace VEPowersuit.Items
             base.OnLoaded(api);
         }
 
-        // Make sure freshly-crafted pieces know their max energy + default modules.
         public override void OnCreatedByCrafting(ItemSlot[] allInputslots, ItemSlot outputSlot,
             IRecipeBase byRecipe)
         {
             base.OnCreatedByCrafting(allInputslots, outputSlot, byRecipe);
+
             var stack = outputSlot.Itemstack;
+            if (stack == null) return;
+
             int max = Attributes?["maxEnergy"]?.AsInt(100000) ?? 100000;
             EnergyStore.SetMaxEnergy(stack, max);
 
-            // Install any modules listed as defaults in the itemtype JSON.
-            string[] defaults = Attributes?["defaultModules"]?.AsArray<string>(new string[0])
-                                ?? new string[0];
+            // Safely read defaultModules array — AsArray<string> can throw on
+            // missing/non-array tokens depending on JsonObject implementation.
+            var defaultsToken = Attributes?["defaultModules"];
+            string[] defaults = defaultsToken != null && defaultsToken.Exists
+                ? (defaultsToken.AsArray<string>() ?? new string[0])
+                : new string[0];
+
             foreach (var code in defaults)
+            {
+                if (string.IsNullOrEmpty(code)) continue;
                 EnergyStore.SetModule(stack, code, true);
+            }
         }
 
         public override void GetHeldItemInfo(ItemSlot inSlot, StringBuilder dsc,
             IWorldAccessor world, bool withDebugInfo)
         {
             base.GetHeldItemInfo(inSlot, dsc, world, withDebugInfo);
+
             var stack = inSlot.Itemstack;
+            if (stack == null) return;
+
             int e = EnergyStore.GetEnergy(stack);
             int max = EnergyStore.GetMaxEnergy(stack);
 
@@ -56,10 +57,21 @@ namespace VEPowersuit.Items
             bool any = false;
             foreach (var kv in ModuleRegistry.All)
             {
+                if (kv.Value == null) continue;
+
                 if (EnergyStore.HasModule(stack, kv.Key))
                 {
-                    if (!any) { dsc.AppendLine(Lang.Get("vepowersuit:installed-modules")); any = true; }
-                    dsc.AppendLine("  - " + Lang.Get(kv.Value.DisplayLangKey));
+                    if (!any)
+                    {
+                        dsc.AppendLine(Lang.Get("vepowersuit:installed-modules"));
+                        any = true;
+                    }
+
+                    string label = string.IsNullOrEmpty(kv.Value.DisplayLangKey)
+                        ? kv.Key
+                        : Lang.Get(kv.Value.DisplayLangKey);
+
+                    dsc.AppendLine("  - " + label);
                 }
             }
 
