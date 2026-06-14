@@ -2,68 +2,48 @@
 
 [← Home](Home.md)
 
-This is the **one part you must finish yourself**, and the reason is honest:
-Vintage Engineering's exact energy API isn't something this scaffold can
-reliably guess. VE is a solo-dev project whose internals shift between
-versions, so the adapter is written against an assumed interface rather than
-fabricated class names that would compile against nothing real.
+**Status: wired and implemented** against Vintage Engineering's real
+`IChargeableItem` API (FlexibleGames/VintageEngineering, VE 0.5.x, game 1.22.3).
 
-Everything else in the mod runs as far as code goes, but **Vintage Engineering
-is now a required dependency** (declared in `modinfo.json` and referenced in
-the build), so the game will refuse to load this mod unless VE is installed,
-and the build will fail unless the VE dll is on disk. The armor still can't
-recharge from VE until the adapter below is wired — the dependency is enforced,
-the power transfer is not yet implemented.
+## How it works
+
+`ItemVEPowersuit` implements `VintageEngineering.Electrical.IChargeableItem`.
+When you drop a suit piece into a VE charger (LV/MV/HV), VE's charger block
+entity (`BELVCharger.OnSimTick`) detects the interface on the item's collectible
+and pushes power in via `RatedPower` / `ReceivePower`. Power flows straight into
+the suit's own EU energy store (`EnergyStore`), the same value the modules drain.
+
+### The per-stack binding
+
+VE's `IChargeableItem` getters (`CurrentPower`, `MaxPower`, `MaxPPS`,
+`RatedPower`) take no `ItemStack`, but a single `Item` instance is shared by
+every stack in the world. To resolve power for the *specific* suit being
+charged, a small Harmony patch (`VEChargerPatch`) wraps `BELVCharger.OnSimTick`
+and binds that charger's input stack to a thread-local context for the duration
+of the tick. The interface members read/write that bound stack. The patch is
+reflective and self-disabling: if VE renames the method, it no-ops cleanly.
+
+### Files
+
+- `src/Items/ItemVEPowersuit.cs` — implements `IChargeableItem`.
+- `src/Systems/VEPowerAdapter.cs` — the EU↔VE power math (rated receive,
+  receive-with-leftover, extract-with-remainder), matching VE's contracts.
+- `src/Systems/VEChargerPatch.cs` — Harmony patch for per-stack binding.
+- `src/Systems/EnergyStore.cs` — adds `MaxPPS` storage.
+
+## Tuning
+
+- `maxEnergy` (per piece, in the itemtype JSON) — buffer capacity in EU.
+- `maxPPS` (per piece, itemtype JSON) — max EU/second the charger can push in.
+  `0` means no per-tick cap.
+- Module drain rates live in `src/Modules/ModuleRegistry.cs`. Scale these and
+  `maxPPS` together so charge time vs. flight time feels right against VE's
+  generator output.
 
 ## Build requirement
 
-Because the `.csproj` now references `vintageengineering.dll`, the build needs
-that dll on disk. VE ships as a ZIP, so extract `vintageengineering.dll` from
-`VintagestoryData\Mods\vintageengineering_*.zip` and either:
-
-- place it at `VintagestoryData\Mods\vintageengineering.dll`, or
-- pass its location to the build:
-  `dotnet build -p:VintageEngineeringDll=C:\full\path\to\vintageengineering.dll`
-
-If it's missing, the pre-build check fails with a message telling you exactly
-this, rather than a cryptic resolve error.
-
-## The file
-
-`src/Systems/VEPowerAdapter.cs`
-
-It exposes two stub methods and a flag, `VEIntegrationWired`, currently set to
-`false`. The item tooltip shows a warning while it's false; flip it to `true`
-once you've verified the real calls.
-
-## What to look for in VE
-
-Open the Vintage Engineering `.dll` in your IDE, or in ILSpy / dnSpy, and find
-how its charging station moves power into items. You're typically looking for:
-
-- An interface implemented by items that can receive power — something like
-  `IElectricalItem` / `IEnergyStorageItem` with a method along the lines of
-  `ReceivePower(float watts, float dt, bool simulate)`.
-- Or an itemstack-attribute convention the charging station writes into.
-
-## Two integration strategies
-
-**A — Implement VE's interface on the armor.**
-Make `ItemVEPowersuit` implement VE's energy interface and forward incoming
-power to `VEPowerAdapter.ReceiveFromVE`, which already handles clamping to the
-piece's max energy. VE's charging station then pushes power in for you.
-
-**B — Stay self-contained.**
-Keep all energy in the mod's own attribute (the current design) and either add
-your own charging block/recipe, or convert power from VE inside
-`TryDrawFromVE` using VE's public API.
-
-## Finishing checklist
-
-1. Add a reference to the VE `.dll` in `VEPowersuit.csproj` (a commented-out
-   block is already there as a template).
-2. Implement the real calls in `TryDrawFromVE` and/or `ReceiveFromVE`.
-3. Set `VEIntegrationWired = true`.
-4. Test charging on a VE charging station.
-5. Scale the EU values in [Modules](Modules.md) to match VE's wattage so drain
-   rates feel right.
+The `.csproj` references `vintageengineering.dll`. VE ships zipped, so extract
+`vintageengineering.dll` from `VintagestoryData\Mods\vintageengineering_*.zip`
+and either place it at `VintagestoryData\Mods\vintageengineering.dll` or pass
+`-p:VintageEngineeringDll=C:\full\path\to\vintageengineering.dll` to the build.
+`0Harmony.dll` (already referenced) ships with the game.

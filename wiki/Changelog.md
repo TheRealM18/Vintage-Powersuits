@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0 — Vintage Engineering power integration
+
+- `ItemVEPowersuit` now implements `VintageEngineering.Electrical.IChargeableItem`.
+  VE chargers (LV/MV/HV) charge the suit directly into its EU energy store.
+- Added `VEPowerAdapter` real power math: `RatedReceive`, `ReceiveFromVE`
+  (leftover contract), `ExtractToVE` (remainder contract) — matching VE's
+  charger expectations from `BELVCharger.OnSimTick`.
+- Added `VEChargerPatch` Harmony patch wrapping `BELVCharger.OnSimTick` to bind
+  the charged stack per-tick, making VE's parameterless `IChargeableItem`
+  getters per-stack correct. Reflective + self-disabling if VE shifts the API.
+- `EnergyStore` gained `MaxPPS` storage; armor itemtypes gained `maxPPS` (2000)
+  and `chargable: false`.
+- `VEIntegrationWired` flipped to true; tooltip now shows a charging hint.
+
 [← Home](Home.md)
 
 All notable changes to the mod are recorded here. Newest first.
