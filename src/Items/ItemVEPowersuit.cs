@@ -19,9 +19,11 @@ namespace VEPowersuit.Items
     /// and then calls ReceivePower for ONE slot, synchronously, within a single
     /// tick. We make that correct by binding the stack VE is about to service to
     /// a [ThreadStatic] context (via the VEChargerPatch Harmony patch) for the
-    /// duration of that read/charge sequence. "chargable" is set to false in the
-    /// itemtype JSON so VE's durability path does not fight our EU store; the
-    /// interface route above is the single source of truth.
+    /// duration of that read/charge sequence. "chargable" is set to true in the
+    /// itemtype JSON (as a flag), but VEChargerPatch fully takes over the charger
+    /// tick for our suit and routes power through this IChargeableItem interface
+    /// into the EU store — so VE's durability-charging path is never used for us.
+    /// The EU store remains the single source of truth for the suit's power.
     /// </summary>
     public class ItemVEPowersuit : Item, IChargeableItem
     {

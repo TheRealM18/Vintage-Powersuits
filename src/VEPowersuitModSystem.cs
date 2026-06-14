@@ -51,8 +51,7 @@ namespace VEPowersuit
 
             // Entity behavior that drives jump-assist and fall-damage negation.
             // Attached to player entities at runtime (see StartServerSide).
-            api.RegisterEntityBehaviorClass(Behaviors.EntityBehaviorPowerSuit.Name,
-                typeof(Behaviors.EntityBehaviorPowerSuit));
+            api.RegisterEntityBehaviorClass("vepowersuitplayer", typeof(Behaviors.EntityBehaviorPowerSuit));
 
             // Patch VE's charger so its IChargeableItem reads bind to the
             // correct per-stack energy while it services our suit.
