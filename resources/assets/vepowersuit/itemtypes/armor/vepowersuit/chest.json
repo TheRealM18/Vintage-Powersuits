@@ -52,7 +52,7 @@
       ]
     },
     "maxPPS": 2000,
-    "chargable": true
+    "chargable": false
   },
   "guiTransform": {
     "rotation": {
