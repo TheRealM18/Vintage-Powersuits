@@ -2,6 +2,7 @@ using System.Text;
 using VEPowersuit.Items;
 using VEPowersuit.Modules;
 using VEPowersuit.Systems;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
@@ -13,9 +14,18 @@ namespace VEPowersuit.Blocks
     /// Block entity for the Module Installer. Holds two slots:
     ///   slot 0 = the power-armor piece to modify
     ///   slot 1 = a power-module item to install
-    /// Calling Install() reads the module's code from the module item and sets
-    /// the corresponding module flag on the armor via EnergyStore, then consumes
-    /// the module item.
+    /// TryInstall() reads the module's code from the module item and sets the
+    /// corresponding module flag on the armor via EnergyStore, then consumes the
+    /// module item.
+    ///
+    /// IMPORTANT (this is what was broken): a BlockEntityOpenableContainer only
+    /// networks its slots while a player has the inventory OPEN on the SERVER.
+    /// The previous version opened a dialog on the client but never opened the
+    /// inventory server-side, so the GUI showed dead, un-syncing slots. The fix
+    /// is to route the open/close through the base class's standard packet
+    /// handling (EnumBlockEntityPacketId.Open/Close), which both opens the
+    /// inventory server-side AND starts slot syncing. We let the base class do
+    /// that work and only add our dialog on top.
     /// </summary>
     public class BlockEntityModuleInstaller : BlockEntityOpenableContainer
     {
@@ -31,6 +41,7 @@ namespace VEPowersuit.Blocks
         public BlockEntityModuleInstaller()
         {
             inventory = new InventoryGeneric(2, null, null);
+            inventory.SlotModified += OnSlotModified;
         }
 
         public override void Initialize(ICoreAPI api)
@@ -39,10 +50,16 @@ namespace VEPowersuit.Blocks
             inventory.LateInitialize(InventoryClassName + "-" + Pos, api);
         }
 
+        private void OnSlotModified(int slotid)
+        {
+            // The dialog's slot grid redraws itself from the inventory's dirty-slot
+            // tracking, so no manual refresh call is needed here.
+            MarkDirty();
+        }
+
         /// <summary>
         /// Attempts to install the module from the module slot onto the armor in
-        /// the armor slot. Returns a human-readable status (already localized
-        /// upstream where shown). Server-authoritative; call on server.
+        /// the armor slot. Server-authoritative; call on server.
         /// </summary>
         public bool TryInstall(out string failReason)
         {
@@ -81,21 +98,73 @@ namespace VEPowersuit.Blocks
             return true;
         }
 
+        /// <summary>
+        /// Right-click. On the CLIENT we toggle the dialog and fire the standard
+        /// Open/Close block-entity packets; the base class's OnReceivedClientPacket
+        /// opens/closes the inventory server-side (which starts slot networking).
+        /// On the SERVER, returning true simply acknowledges the interaction.
+        /// </summary>
         public override bool OnPlayerRightClick(IPlayer byPlayer, BlockSelection blockSel)
         {
+            if (Api == null) return false;
+
             if (Api.Side == EnumAppSide.Client)
             {
-                if (clientDialog == null)
-                {
-                    var capi = Api as Vintagestory.API.Client.ICoreClientAPI;
-                    clientDialog = new GuiDialogModuleInstaller(
-                        Lang.Get("vepowersuit:installer-title"), inventory, Pos, capi,
-                        () => VEPowersuitModSystem.SendInstall(capi, Pos));
-                    clientDialog.OnClosed += () => clientDialog = null;
-                }
-                clientDialog.TryOpen();
+                ToggleDialog(byPlayer);
             }
+
             return true;
+        }
+
+        private void ToggleDialog(IPlayer byPlayer)
+        {
+            var capi = Api as ICoreClientAPI;
+            if (capi == null) return;
+
+            if (clientDialog == null)
+            {
+                clientDialog = new GuiDialogModuleInstaller(
+                    Lang.Get("vepowersuit:installer-title"), inventory, Pos, capi,
+                    () => VEPowersuitModSystem.SendInstall(capi, Pos));
+
+                clientDialog.OnClosed += () =>
+                {
+                    clientDialog = null;
+                    // Standard close packet: base class closes the inventory for us.
+                    capi.Network.SendBlockEntityPacket(Pos, (int)EnumBlockEntityPacketId.Close);
+                };
+
+                if (clientDialog.TryOpen())
+                {
+                    // Standard open packet: base class opens the inventory server
+                    // side and begins streaming slot contents to this client.
+                    capi.Network.SendBlockEntityPacket(Pos, (int)EnumBlockEntityPacketId.Open);
+                }
+            }
+            else
+            {
+                clientDialog.TryClose();
+            }
+        }
+
+        // Let the base class handle Open/Close (it opens/closes the inventory for
+        // the player and drives slot syncing). We only override to keep the hook
+        // explicit; do NOT re-implement Open/Close here or the inventory opens twice.
+        public override void OnReceivedClientPacket(IPlayer player, int packetid, byte[] data)
+        {
+            base.OnReceivedClientPacket(player, packetid, data);
+        }
+
+        public override void OnBlockRemoved()
+        {
+            base.OnBlockRemoved();
+            clientDialog?.TryClose();
+        }
+
+        public override void OnBlockUnloaded()
+        {
+            base.OnBlockUnloaded();
+            clientDialog?.TryClose();
         }
 
         public override void GetBlockInfo(IPlayer forPlayer, StringBuilder dsc)
@@ -108,6 +177,8 @@ namespace VEPowersuit.Blocks
         {
             base.FromTreeAttributes(tree, world);
             inventory.FromTreeAttributes(tree.GetTreeAttribute("inventory"));
+            // No manual dialog refresh: the slot grid redraws from the synced
+            // inventory's dirty-slot list automatically.
         }
 
         public override void ToTreeAttributes(ITreeAttribute tree)

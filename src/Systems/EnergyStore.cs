@@ -11,6 +11,7 @@ namespace VEPowersuit.Systems
     {
         private const string EnergyKey = "paEnergy";
         private const string MaxKey = "paMaxEnergy";
+        private const string MaxPPSKey = "paMaxPPS";
         private const string ModulesKey = "paModules";
 
         public static int GetEnergy(ItemStack stack)
@@ -36,6 +37,21 @@ namespace VEPowersuit.Systems
 
         public static void SetMaxEnergy(ItemStack stack, int value)
             => stack?.Attributes?.SetInt(MaxKey, value);
+
+        /// <summary>
+        /// Max power-per-second the suit will accept/emit through Vintage
+        /// Engineering. 0 means "no per-tick limit" (VE convention). Read from
+        /// the stack attribute, falling back to the itemtype JSON "maxPPS".
+        /// </summary>
+        public static int GetMaxPPS(ItemStack stack)
+        {
+            int fromAttr = stack?.Attributes?.GetInt(MaxPPSKey, -1) ?? -1;
+            if (fromAttr >= 0) return fromAttr;
+            return stack?.Collectible?.Attributes?["maxPPS"]?.AsInt(2000) ?? 2000;
+        }
+
+        public static void SetMaxPPS(ItemStack stack, int value)
+            => stack?.Attributes?.SetInt(MaxPPSKey, value);
 
         /// <summary>Spend energy if available. Returns false if insufficient.</summary>
         public static bool TryConsume(ItemStack stack, int amount)

@@ -29,9 +29,8 @@
   "attributes": {
     "isCore": true,
     "maxEnergy": 200000,
-    "defaultModules": [
-    ],
-    "visibleDamageEffect": true,
+    "defaultModules": [],
+    "visibleDamageEffect": false,
     "clothesCategory": "armorbody",
     "attachableToEntity": {
       "categoryCode": "armorbody",
@@ -48,7 +47,9 @@
           "text": "vepowersuit:guide-modules-text"
         }
       ]
-    }
+    },
+    "maxPPS": 2000,
+    "chargable": true
   },
   "guiTransform": {
     "rotation": {

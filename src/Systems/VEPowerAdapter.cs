@@ -4,73 +4,90 @@ using Vintagestory.API.Common;
 namespace VEPowersuit.Systems
 {
     /// <summary>
-    /// ============================================================
-    ///  *** THE ONE FILE YOU MUST VERIFY MANUALLY ***
-    /// ============================================================
-    /// Vintage Engineering exposes its own energy interfaces. I do NOT have
-    /// VE's exact API memorized, so this adapter is written against an
-    /// ASSUMED interface. Open the VE .dll in your IDE (or dnSpy/ILSpy),
-    /// find how VE charging stations transfer power into items, and wire
-    /// the two methods below to the real calls.
+    /// Bridge between the suit's own EU energy store and Vintage Engineering's
+    /// electrical API.
     ///
-    /// What you are looking for in the VE assembly, typically named something
-    /// like VintageEngineering.Electrical.* :
-    ///   - An interface implemented by items that can hold/receive power,
-    ///     e.g. IElectricalItem / IEnergyStorageItem with a method like
-    ///     ReceivePower(float watts, float dt, bool simulate).
-    ///   - Or an ItemSlot/attribute convention the charging station writes to.
+    /// VE (FlexibleGames/VintageEngineering) charges items two ways, decided by
+    /// its LV/MV/HV charger block entity (see BELVCharger.OnSimTick):
     ///
-    /// Two integration strategies (pick one):
+    ///   1. INTERFACE ROUTE - the item's Collectible implements
+    ///      VintageEngineering.Electrical.IChargeableItem. The charger reads
+    ///      CurrentPower / MaxPower / RatedPower(dt) and calls
+    ///      ReceivePower(offered, dt, simulate) on it.
     ///
-    ///  A) IMPLEMENT VE's interface on the armor item directly. Then VE's
-    ///     charging station will push power in for free. This adapter just
-    ///     reads the resulting energy back out for our own use.
+    ///   2. DURABILITY ROUTE - the item carries the boolean attribute
+    ///      "chargable": true. The charger then tops up the vanilla durability
+    ///      attribute using powerperdurability, with NO interface needed.
     ///
-    ///  B) SELF-CONTAINED. Keep all energy in our own attribute (this is what
-    ///     the rest of the mod does already) and add a custom block / recipe
-    ///     to charge it, OR convert from VE via VE's public API here.
-    ///
-    /// The rest of the mod (flight, modules, HUD, keybind, energy store) is
-    /// written against the stable core VS API and does NOT depend on this file
-    /// being correct — it will compile and run; the armor just won't pull
-    /// power from VE until you finish this adapter.
+    /// ItemVEPowersuit implements IChargeableItem (route 1). The methods below
+    /// are the actual VE-facing power math, kept here so the energy semantics
+    /// live in one place. Energy unit ("EU") == VE power unit; tune module drain
+    /// in ModuleRegistry to taste.
     /// </summary>
     public static class VEPowerAdapter
     {
-        // Set true once you've confirmed the VE calls below are correct.
-        // static readonly (not const) so the compiler doesn't flag the
-        // guard-clause returns below as unreachable code while this is false.
-        public static readonly bool VEIntegrationWired = false;
+        // VE integration is now implemented against the real IChargeableItem
+        // interface (FlexibleGames/VintageEngineering, 1.22.x). The tooltip
+        // warning keys off this.
+        public static readonly bool VEIntegrationWired = true;
 
         /// <summary>
-        /// Try to pull up to maxEnergy units from a VE power source represented
-        /// by the given slot/itemstack context. Return the amount actually moved.
-        ///
-        /// Replace the body with the real VE call. Example shape ONLY:
-        ///
-        ///   if (itemStack.Collectible is IElectricalItem ve)
-        ///       return ve.ExtractPower(maxEnergy, dt, simulate: false);
+        /// Power this stack can accept this tick, rated to its per-second cap.
+        /// Mirrors the contract VE's charger expects from RatedPower(dt, isInsert:true):
+        /// never larger than remaining capacity, never larger than maxPPS*dt.
         /// </summary>
-        public static int TryDrawFromVE(IWorldAccessor world, ItemStack source, int maxEnergy)
+        public static ulong RatedReceive(ItemStack stack, float dt)
         {
-            if (!VEIntegrationWired) return 0;
-            // TODO: real VE call here.
-            return 0;
+            if (stack == null) return 0;
+            ulong room = (ulong)Math.Max(0, EnergyStore.GetMaxEnergy(stack) - EnergyStore.GetEnergy(stack));
+            ulong pps = (ulong)Math.Max(0, EnergyStore.GetMaxPPS(stack));
+            ulong tickCap = pps == 0 ? room : (ulong)Math.Round(pps * (double)dt);
+            if (tickCap == 0) tickCap = room; // PPS of 0 == no per-tick limit
+            return Math.Min(room, tickCap);
         }
 
         /// <summary>
-        /// Hook for VE's charging station to push power INTO the armor.
-        /// If you choose strategy (A), you implement VE's interface on
-        /// ItemVEPowersuit and forward here.
+        /// Push power offered by VE into the suit. Returns the LEFTOVER that did
+        /// not fit (0 if all consumed) - exactly the contract VE's charger uses
+        /// (it does: electricpower -= (offered - leftover)).
         /// </summary>
-        public static int ReceiveFromVE(ItemStack armor, int offered)
+        public static ulong ReceiveFromVE(ItemStack stack, ulong powerOffered, float dt, bool simulate)
         {
-            int cur = EnergyStore.GetEnergy(armor);
-            int max = EnergyStore.GetMaxEnergy(armor);
-            int room = Math.Max(0, max - cur);
-            int taken = Math.Min(room, offered);
-            EnergyStore.SetEnergy(armor, cur + taken);
-            return taken;
+            if (stack == null) return powerOffered;
+
+            ulong canTake = RatedReceive(stack, dt);
+            if (canTake == 0) return powerOffered;
+
+            ulong taken = Math.Min(canTake, powerOffered);
+            if (!simulate)
+            {
+                int cur = EnergyStore.GetEnergy(stack);
+                long target = cur + (long)taken;
+                if (target > int.MaxValue) target = int.MaxValue;
+                EnergyStore.SetEnergy(stack, (int)target);
+            }
+            return powerOffered - taken;
+        }
+
+        /// <summary>
+        /// Pull power OUT of the suit. Returns the UNFULFILLED remainder of
+        /// powerWanted (0 if fully satisfied) - VE's ExtractPower contract.
+        /// </summary>
+        public static ulong ExtractToVE(ItemStack stack, ulong powerWanted, float dt, bool simulate)
+        {
+            if (stack == null) return powerWanted;
+
+            ulong have = (ulong)Math.Max(0, EnergyStore.GetEnergy(stack));
+            ulong pps = (ulong)Math.Max(0, EnergyStore.GetMaxPPS(stack));
+            ulong tickCap = pps == 0 ? have : (ulong)Math.Round(pps * (double)dt);
+            if (tickCap == 0) tickCap = have;
+
+            ulong giveable = Math.Min(have, tickCap);
+            ulong given = Math.Min(giveable, powerWanted);
+            if (!simulate && given > 0)
+                EnergyStore.SetEnergy(stack, EnergyStore.GetEnergy(stack) - (int)given);
+
+            return powerWanted - given;
         }
     }
 }

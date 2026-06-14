@@ -15,9 +15,11 @@ namespace VEPowersuit
     public class VEPowersuitModSystem : ModSystem
     {
         private const string Channel = "vepowersuit";
+        private const string HarmonyId = "vepowersuit.vepatches";
 
         private ICoreServerAPI sapi;
         private ICoreClientAPI capi;
+        private HarmonyLib.Harmony harmony;
         private IServerNetworkChannel serverChannel;
         private IClientNetworkChannel clientChannel;
 
@@ -45,6 +47,21 @@ namespace VEPowersuit
             // Module installer block + its block entity.
             api.RegisterBlockClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockModuleInstaller));
             api.RegisterBlockEntityClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockEntityModuleInstaller));
+
+            // Patch VE's charger so its IChargeableItem reads bind to the
+            // correct per-stack energy while it services our suit.
+            if (!HarmonyLib.Harmony.HasAnyPatches(HarmonyId))
+            {
+                harmony = new HarmonyLib.Harmony(HarmonyId);
+                harmony.PatchAll(typeof(VEPowersuitModSystem).Assembly);
+            }
+        }
+
+        public override void Dispose()
+        {
+            harmony?.UnpatchAll(HarmonyId);
+            harmony = null;
+            base.Dispose();
         }
 
         // ---------------- SERVER ----------------
