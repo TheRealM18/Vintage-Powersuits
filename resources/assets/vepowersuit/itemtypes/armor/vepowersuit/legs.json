@@ -1,45 +1,79 @@
 {
   "code": "vepowersuit-legs",
   "class": "ItemVEPowersuit",
-  "variantgroups": [
+  "shape": {
+    "base": "vepowersuit:item/armor/vepowersuit/legs"
+  },
+  "texture": {
+    "base": "vepowersuit:item/armor/vepowersuit/legs"
+  },
+  "creativeinventory": {
+    "general": [
+      "*"
+    ],
+    "items": [
+      "*"
+    ],
+    "vepowersuit": [
+      "*"
+    ]
+  },
+  "maxstacksize": 1,
+  "durability": 5500,
+  "storageFlags": 128,
+  "behaviors": [
     {
-      "code": "material",
-      "states": ["temporalsteel"]
+      "name": "Wearable"
     }
   ],
-  "shape": { "base": "item/armor/vepowersuit/legs" },
-  "texture": { "base": "item/armor/vepowersuit/legs" },
-  "creativeinventory": { "general": ["*"], "items": ["*"], "vepowersuit": ["*"] },
-  "maxstacksize": 1,
   "attributes": {
-    "wearableAttachment": true,
-    "clothescategory": "legs",
-    "armorSlot": "legs",
-    "protectionModifiers": {
-      "perTierRelativeProtectionLoss": 0.075,
-      "protectionPerTier": [0, 5, 9, 13],
-      "flatDamageReductionPerTier": [0, 1, 2, 3]
+    "isCore": false,
+    "maxEnergy": 80000,
+    "defaultModules": [
+    ],
+    "visibleDamageEffect": true,
+    "clothesCategory": "armorlegs",
+    "attachableToEntity": {
+      "categoryCode": "armorlegs",
+      "attachedShapeBySlotCode": {
+        "armorlegs": {
+          "base": "game:entity/humanoid/seraph/armor/plate/legs"
+        }
+      }
     },
-    "warmth": 1.5
+    "handbook": {
+      "extraSections": [
+        {
+          "title": "vepowersuit:guide-modules-title",
+          "text": "vepowersuit:guide-modules-text"
+        }
+      ]
+    }
   },
-  "combustiblePropsByType": {},
-  "storageFlags": 1,
   "guiTransform": {
-    "translation": { "x": 0, "y": 0, "z": 0 },
-    "rotation": { "x": -9, "y": -41, "z": -8 },
-    "origin": { "x": 0.5, "y": 0.5, "z": 0.5 },
+    "rotation": {
+      "x": -9,
+      "y": -41,
+      "z": -8
+    },
+    "origin": {
+      "x": 0.5,
+      "y": 0.5,
+      "z": 0.5
+    },
     "scale": 1.7
   },
-  "fpHandTransform": {
-    "translation": { "x": 0, "y": 0, "z": 0 },
-    "rotation": { "x": 0, "y": 0, "z": 0 },
-    "origin": { "x": 0.5, "y": 0.5, "z": 0.5 },
-    "scale": 1
-  },
   "groundTransform": {
-    "translation": { "x": 0, "y": 0, "z": 0 },
-    "rotation": { "x": 0, "y": 0, "z": 0 },
-    "origin": { "x": 0.5, "y": 0.5, "z": 0.5 },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "origin": {
+      "x": 0.5,
+      "y": 0.5,
+      "z": 0.5
+    },
     "scale": 2
   }
 }

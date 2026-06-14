@@ -1,0 +1,52 @@
+{
+  "textureWidth": 64,
+  "textureHeight": 32,
+  "textures": {
+    "chest": "vepowersuit:item/armor/vepowersuit/chest"
+  },
+  "elements": [
+    {
+      "name": "body",
+      "from": [4, 12, 2],
+      "to": [12, 24, 6],
+      "rotationOrigin": [8, 18, 4],
+      "faces": {
+        "north": { "texture": "#chest", "uv": [20, 20, 28, 32] },
+        "east":  { "texture": "#chest", "uv": [16, 20, 20, 32] },
+        "south": { "texture": "#chest", "uv": [32, 20, 40, 32] },
+        "west":  { "texture": "#chest", "uv": [28, 20, 32, 32] },
+        "up":    { "texture": "#chest", "uv": [20, 16, 28, 20] },
+        "down":  { "texture": "#chest", "uv": [28, 16, 36, 20] }
+      }
+    },
+    {
+      "name": "left_arm",
+      "from": [12, 12, 2],
+      "to": [16, 24, 6],
+      "rotationOrigin": [14, 18, 4],
+      "faces": {
+        "north": { "texture": "#chest", "uv": [44, 20, 48, 32] },
+        "east":  { "texture": "#chest", "uv": [40, 20, 44, 32] },
+        "south": { "texture": "#chest", "uv": [52, 20, 56, 32] },
+        "west":  { "texture": "#chest", "uv": [48, 20, 52, 32] },
+        "up":    { "texture": "#chest", "uv": [44, 16, 48, 20] },
+        "down":  { "texture": "#chest", "uv": [48, 16, 52, 20] }
+      }
+    },
+    {
+      "name": "right_arm",
+      "from": [0, 12, 2],
+      "to": [4, 24, 6],
+      "rotationOrigin": [2, 18, 4],
+      "faces": {
+        "north": { "texture": "#chest", "uv": [44, 20, 48, 32] },
+        "east":  { "texture": "#chest", "uv": [40, 20, 44, 32] },
+        "south": { "texture": "#chest", "uv": [52, 20, 56, 32] },
+        "west":  { "texture": "#chest", "uv": [48, 20, 52, 32] },
+        "up":    { "texture": "#chest", "uv": [44, 16, 48, 20] },
+        "down":  { "texture": "#chest", "uv": [48, 16, 52, 20] }
+      }
+    }
+  ],
+  "animations": []
+}

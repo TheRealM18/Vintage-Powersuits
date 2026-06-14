@@ -4,17 +4,19 @@
 
 ## Armor pieces
 
-Four wearable pieces, each storing its own energy:
+Three wearable pieces (matching Vintage Story's three armor slots — head, body,
+legs), each storing its own energy:
 
-| Piece | Core? | Max energy | Default module |
+| Piece | Core? | Max energy | Default modules |
 |-------|-------|-----------|----------------|
 | Powered Chestplate | Yes | 200,000 EU | Sprint Assist |
-| Powered Leggings | No | 80,000 EU | Jump Assist |
+| Powered Leggings | No | 80,000 EU | Jump Assist, Fall Damage Negation |
 | Powered Helmet | No | 60,000 EU | Night Vision |
-| Powered Boots | No | 60,000 EU | Fall Damage Negation |
 
 The **chestplate is the core**: flight and sprint logic read from it. The
 other pieces add protection, energy capacity, and their own default modules.
+There is no boots/foot slot in Vintage Story, so fall-damage negation lives on
+the leggings instead.
 
 Energy is stored per itemstack and persists across saves — it travels with
 the item. The unit is a generic "EU"; scale it to match VE wattage when you

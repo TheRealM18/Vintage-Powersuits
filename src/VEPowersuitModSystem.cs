@@ -40,7 +40,7 @@ namespace VEPowersuit
         {
             base.Start(api);
             // Register the armor item class so itemtype JSON "class": "VEPowersuit" resolves.
-            api.RegisterItemClass("VEPowersuit", typeof(ItemVEPowersuit));
+            api.RegisterItemClass("ItemVEPowersuit", typeof(ItemVEPowersuit));
 
             // Module installer block + its block entity.
             api.RegisterBlockClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockModuleInstaller));

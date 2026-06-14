@@ -1,12 +1,11 @@
 {
-  "ingredientPattern": "PGP,SPS,PMP",
+  "ingredientPattern": "PGP,SPS,PSP",
   "width": 3,
   "height": 3,
   "ingredients": {
-    "P": { "type": "item", "code": "venteng:machineplate-temporalsteel" },
+    "P": { "type": "item", "code": "vinteng:machineplate-temporalsteel" },
     "G": { "type": "item", "code": "game:gear-temporal" },
-    "S": { "type": "item", "code": "game:ingot-temporalsteel" },
-    "M": { "type": "item", "code": "vepowersuit:powermodule-flight" }
+    "S": { "type": "item", "code": "vinteng:ingot-temporalsteel" }
   },
-  "output": { "type": "item", "code": "vepowersuit:vepowersuit-chest-temporalsteel", "quantity": 1 }
+  "output": { "type": "item", "code": "vepowersuit:vepowersuit-chest", "quantity": 1 }
 }

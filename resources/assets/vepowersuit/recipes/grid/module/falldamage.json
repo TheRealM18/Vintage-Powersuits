@@ -5,11 +5,11 @@
   "ingredients": {
     "P": {
       "type": "item",
-      "code": "game:metalplate-steel"
+      "code": "vinteng:ingot-temporalsteel"
     },
     "G": {
       "type": "item",
-      "code": "game:gear-temporal"
+      "code": "vinteng:machineplate-temporalsteel"
     },
     "C": {
       "type": "item",

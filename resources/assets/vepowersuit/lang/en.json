@@ -1,7 +1,6 @@
 {
-  "vepowersuit:item-vepowersuit-chest": "Powered Chestplate (Core)",
+  "vepowersuit:item-vepowersuit-chest": "Powered Chestplate",
   "vepowersuit:item-vepowersuit-legs": "Powered Leggings",
-  "vepowersuit:item-vepowersuit-boots": "Powered Boots",
   "vepowersuit:item-vepowersuit-helmet": "Powered Helmet",
   "vepowersuit:energy-line": "Energy: {0} / {1} EU",
   "vepowersuit:installed-modules": "Installed modules:",
@@ -26,5 +25,7 @@
   "vepowersuit:installer-moduleslot": "Module",
   "vepowersuit:installer-install": "Install Module",
   "vepowersuit:installer-hint": "Insert a powersuit piece and a module, then close to install.",
-  "game:tabname-vepowersuit": "VE Powersuit"
+  "game:tabname-vepowersuit": "VE Powersuit",
+  "vepowersuit:guide-modules-title": "Power Armor: Installing Modules",
+  "vepowersuit:guide-modules-text": "Power armor modules add abilities like flight, sprint assist, jump assist, fall-damage negation, and night vision.\n\nTo install a module:\n1. Craft a Module Installer block and place it down.\n2. Craft the module item you want (each is made from steel plates and temporal gears).\n3. Right-click the installer to open it.\n4. Put a power armor piece in the Armor slot and a module in the Module slot.\n5. Close the window to install. The module is consumed and its ability is added to that armor piece.\n\nEach piece stores energy and powers its installed modules. A piece can hold each module only once. Recharge armor from Vintage Engineering power once that connection is configured."
 }

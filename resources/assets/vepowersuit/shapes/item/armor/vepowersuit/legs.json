@@ -1,0 +1,52 @@
+{
+  "textureWidth": 64,
+  "textureHeight": 32,
+  "textures": {
+    "legs": "vepowersuit:item/armor/vepowersuit/legs"
+  },
+  "elements": [
+    {
+      "name": "waist",
+      "from": [4, 0, 2],
+      "to": [12, 6, 6],
+      "rotationOrigin": [8, 3, 4],
+      "faces": {
+        "north": { "texture": "#legs", "uv": [4, 20, 12, 26] },
+        "east":  { "texture": "#legs", "uv": [0, 20, 4, 26] },
+        "south": { "texture": "#legs", "uv": [16, 20, 24, 26] },
+        "west":  { "texture": "#legs", "uv": [12, 20, 16, 26] },
+        "up":    { "texture": "#legs", "uv": [4, 16, 12, 20] },
+        "down":  { "texture": "#legs", "uv": [12, 16, 20, 20] }
+      }
+    },
+    {
+      "name": "left_leg",
+      "from": [8, -12, 2],
+      "to": [12, 0, 6],
+      "rotationOrigin": [10, 0, 4],
+      "faces": {
+        "north": { "texture": "#legs", "uv": [4, 4, 8, 16] },
+        "east":  { "texture": "#legs", "uv": [0, 4, 4, 16] },
+        "south": { "texture": "#legs", "uv": [12, 4, 16, 16] },
+        "west":  { "texture": "#legs", "uv": [8, 4, 12, 16] },
+        "up":    { "texture": "#legs", "uv": [4, 0, 8, 4] },
+        "down":  { "texture": "#legs", "uv": [8, 0, 12, 4] }
+      }
+    },
+    {
+      "name": "right_leg",
+      "from": [4, -12, 2],
+      "to": [8, 0, 6],
+      "rotationOrigin": [6, 0, 4],
+      "faces": {
+        "north": { "texture": "#legs", "uv": [20, 4, 24, 16] },
+        "east":  { "texture": "#legs", "uv": [16, 4, 20, 16] },
+        "south": { "texture": "#legs", "uv": [28, 4, 32, 16] },
+        "west":  { "texture": "#legs", "uv": [24, 4, 28, 16] },
+        "up":    { "texture": "#legs", "uv": [20, 0, 24, 4] },
+        "down":  { "texture": "#legs", "uv": [24, 0, 28, 4] }
+      }
+    }
+  ],
+  "animations": []
+}

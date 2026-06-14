@@ -2,9 +2,9 @@
   "ingredientPattern": "PGP,GCG,PPP",
   "width": 3, "height": 3,
   "ingredients": {
-    "P": { "type": "item", "code": "game:metalplate-steel" },
+    "P": { "type": "item", "code": "vinteng:ingot-temporalsteel" },
     "G": { "type": "item", "code": "game:gear-temporal" },
-    "C": { "type": "item", "code": "game:largegear-temporal" }
+    "C": { "type": "item", "code": "vinteng:machineplate-temporalsteel" }
   },
   "output": { "type": "block", "code": "vepowersuit:moduleinstaller", "quantity": 1 }
 }

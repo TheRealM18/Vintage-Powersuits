@@ -4,7 +4,7 @@
 
 ## Armor pieces
 
-Four craftable pieces (see [Features](Features.md) for stats). Each is made on
+Three craftable pieces (see [Features](Features.md) for stats). Each is made on
 the crafting grid from steel plates and temporal gears — deliberately end-game,
 matching the Vintage Engineering tier. The chest and several pieces also embed
 a module item in their recipe.

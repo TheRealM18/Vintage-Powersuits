@@ -1,0 +1,38 @@
+{
+  "textureWidth": 64,
+  "textureHeight": 32,
+  "textures": {
+    "helmet": "vepowersuit:item/armor/vepowersuit/helmet"
+  },
+  "elements": [
+    {
+      "name": "head",
+      "from": [4, 24, 4],
+      "to": [12, 32, 12],
+      "rotationOrigin": [8, 26, 8],
+      "faces": {
+        "north": { "texture": "#helmet", "uv": [8, 8, 16, 16] },
+        "east":  { "texture": "#helmet", "uv": [0, 8, 8, 16] },
+        "south": { "texture": "#helmet", "uv": [24, 8, 32, 16] },
+        "west":  { "texture": "#helmet", "uv": [16, 8, 24, 16] },
+        "up":    { "texture": "#helmet", "uv": [8, 0, 16, 8] },
+        "down":  { "texture": "#helmet", "uv": [16, 0, 24, 8] }
+      }
+    },
+    {
+      "name": "visor",
+      "from": [4, 22, 3],
+      "to": [12, 26, 4],
+      "rotationOrigin": [8, 24, 4],
+      "faces": {
+        "north": { "texture": "#helmet", "uv": [8, 16, 16, 20] },
+        "east":  { "texture": "#helmet", "uv": [4, 16, 8, 20] },
+        "south": { "texture": "#helmet", "uv": [20, 16, 28, 20] },
+        "west":  { "texture": "#helmet", "uv": [16, 16, 20, 20] },
+        "up":    { "texture": "#helmet", "uv": [8, 12, 16, 16] },
+        "down":  { "texture": "#helmet", "uv": [16, 12, 24, 16] }
+      }
+    }
+  ],
+  "animations": []
+}

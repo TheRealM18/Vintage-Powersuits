@@ -4,6 +4,39 @@
 
 All notable changes to the mod are recorded here. Newest first.
 
+## [0.2.0] — Wearable armor fixed; 3 pieces; handbook guide
+
+### Fixed
+- **Armor is now actually wearable.** The itemtypes were missing the
+  `Wearable` behavior and used invented attribute keys (`wearableAttachment`,
+  `clothescategory: "torso"`, `armorSlot`). Rewrote all three to mirror the
+  vanilla seraph armor: added `behaviors: [{ "name": "Wearable" }]`, the real
+  `clothesCategory` values (`armorbody` / `armorhead` / `armorlegs`),
+  `attachableToEntity` with `categoryCode` + worn shape, and a correct
+  `protectionModifiers` schema (relativeProtection / flatDamageReduction /
+  protectionTier).
+- Worn models now reference the vanilla plate-armor shapes
+  (`game:entity/humanoid/seraph/armor/plate/{body|head|legs}`) so equipped
+  pieces render on the character.
+
+### Changed
+- **Reduced to three armor pieces** (head, body, legs) — Vintage Story has only
+  three armor slots; there is no foot/boots slot. Removed the leftover
+  `boots.png` and the stale boots lang entry. Fall Damage Negation moved to the
+  leggings.
+
+### Added
+- **In-game handbook guide** explaining how to install modules
+  (`config/handbook/101-modules.json` + lang). Each armor piece's handbook page
+  also carries an extra section with the same instructions, so players can find
+  out how modules work from the item itself.
+
+### Notes
+- Verified against the vanilla `wearable/seraph/armor.json` reference and the
+  current 1.22.3 environment from the GitHub repo.
+
+## [0.1.12] — (prior state from repo)
+
 ## [0.1.10] — Installer networking reworked; warnings cleared
 
 ### Fixed
