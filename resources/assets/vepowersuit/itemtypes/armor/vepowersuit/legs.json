@@ -1,0 +1,45 @@
+{
+  "code": "vepowersuit-legs",
+  "class": "ItemVEPowersuit",
+  "variantgroups": [
+    {
+      "code": "material",
+      "states": ["temporalsteel"]
+    }
+  ],
+  "shape": { "base": "item/armor/vepowersuit/legs" },
+  "texture": { "base": "item/armor/vepowersuit/legs" },
+  "creativeinventory": { "general": ["*"], "items": ["*"], "vepowersuit": ["*"] },
+  "maxstacksize": 1,
+  "attributes": {
+    "wearableAttachment": true,
+    "clothescategory": "legs",
+    "armorSlot": "legs",
+    "protectionModifiers": {
+      "perTierRelativeProtectionLoss": 0.075,
+      "protectionPerTier": [0, 5, 9, 13],
+      "flatDamageReductionPerTier": [0, 1, 2, 3]
+    },
+    "warmth": 1.5
+  },
+  "combustiblePropsByType": {},
+  "storageFlags": 1,
+  "guiTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": -9, "y": -41, "z": -8 },
+    "origin": { "x": 0.5, "y": 0.5, "z": 0.5 },
+    "scale": 1.7
+  },
+  "fpHandTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "origin": { "x": 0.5, "y": 0.5, "z": 0.5 },
+    "scale": 1
+  },
+  "groundTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "origin": { "x": 0.5, "y": 0.5, "z": 0.5 },
+    "scale": 2
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "ingredientPattern": "PGP,P_P,P_P",
+  "width": 3, "height": 3,
+  "ingredients": {
+    "P": { "type": "item", "code": "venteng:machineplate-temporalsteel" },
+    "G": { "type": "item", "code": "game:gear-temporal" }
+  },
+  "output": { "type": "item", "code": "vepowersuit:vepowersuit-legs-temporalsteel", "quantity": 1 }
+}

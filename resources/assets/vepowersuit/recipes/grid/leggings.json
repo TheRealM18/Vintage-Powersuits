@@ -1,9 +1,0 @@
-{
-  "ingredientPattern": "PGP,P_P,P_P",
-  "width": 3, "height": 3,
-  "ingredients": {
-    "P": { "type": "item", "code": "game:metalplate-steel" },
-    "G": { "type": "item", "code": "game:gear-temporal" }
-  },
-  "output": { "type": "item", "code": "vepowersuit:vepowersuit-legs", "quantity": 1 }
-}

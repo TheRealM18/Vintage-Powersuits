@@ -1,0 +1,12 @@
+{
+  "ingredientPattern": "PGP,SPS,PMP",
+  "width": 3,
+  "height": 3,
+  "ingredients": {
+    "P": { "type": "item", "code": "venteng:machineplate-temporalsteel" },
+    "G": { "type": "item", "code": "game:gear-temporal" },
+    "S": { "type": "item", "code": "game:ingot-temporalsteel" },
+    "M": { "type": "item", "code": "vepowersuit:powermodule-flight" }
+  },
+  "output": { "type": "item", "code": "vepowersuit:vepowersuit-chest-temporalsteel", "quantity": 1 }
+}
