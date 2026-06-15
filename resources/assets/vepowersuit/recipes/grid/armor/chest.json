@@ -3,9 +3,22 @@
   "width": 3,
   "height": 3,
   "ingredients": {
-    "P": { "type": "item", "code": "vinteng:machineplate-temporalsteel" },
-    "G": { "type": "item", "code": "game:gear-temporal" },
-    "S": { "type": "item", "code": "vinteng:ingot-temporalsteel" }
+    "P": {
+      "type": "item",
+      "code": "vinteng:machineplate-temporalsteel"
+    },
+    "G": {
+      "type": "item",
+      "code": "game:gear-temporal"
+    },
+    "S": {
+      "type": "item",
+      "code": "vinteng:ingot-temporalsteel"
+    }
   },
-  "output": { "type": "item", "code": "vepowersuit:vepowersuit-chest", "quantity": 1 }
+  "output": {
+    "type": "item",
+    "code": "vepowersuit:vepowersuit-chest-normal",
+    "quantity": 1
+  }
 }

@@ -73,6 +73,39 @@ namespace VEPowersuit.Systems
             if (stack == null) return;
             var tree = stack.Attributes.GetOrAddTreeAttribute(ModulesKey);
             tree.SetBool(moduleCode, installed);
+            // Uninstalling also clears the enabled flag so it can't linger.
+            if (!installed)
+            {
+                var en = stack.Attributes.GetTreeAttribute(EnabledKey);
+                en?.RemoveAttribute(moduleCode);
+            }
+        }
+
+        // ── Enabled state (the GUI on/off toggle) ───────────────────────────
+        // Distinct from "installed". A module must be installed to do anything;
+        // "enabled" is whether the player has it switched ON via the GUI. A
+        // freshly installed module defaults to enabled so it works immediately.
+
+        private const string EnabledKey = "paModulesEnabled";
+
+        /// <summary>
+        /// Is this installed module switched ON? Returns false if not installed.
+        /// Defaults to ON for an installed module that has no explicit flag yet.
+        /// </summary>
+        public static bool IsEnabled(ItemStack stack, string moduleCode)
+        {
+            if (!HasModule(stack, moduleCode)) return false;
+            var tree = stack?.Attributes?.GetTreeAttribute(EnabledKey);
+            // No explicit entry → default ON (installed implies usable).
+            return tree == null || !tree.HasAttribute(moduleCode) || tree.GetBool(moduleCode, true);
+        }
+
+        /// <summary>Switch an installed module ON/OFF. No effect if not installed.</summary>
+        public static void SetEnabled(ItemStack stack, string moduleCode, bool enabled)
+        {
+            if (stack == null || !HasModule(stack, moduleCode)) return;
+            var tree = stack.Attributes.GetOrAddTreeAttribute(EnabledKey);
+            tree.SetBool(moduleCode, enabled);
         }
     }
 }

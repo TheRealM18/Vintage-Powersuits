@@ -53,6 +53,11 @@ namespace VEPowersuit
             // Attached to player entities at runtime (see StartServerSide).
             api.RegisterEntityBehaviorClass("vepowersuitplayer", typeof(Behaviors.EntityBehaviorPowerSuit));
 
+            // Collectible behavior: marks a suit piece as power-only (charged
+            // through the EU store via the Harmony patch, durability ignored).
+            api.RegisterCollectibleBehaviorClass("vepowersuitpowercharged",
+                typeof(Behaviors.CollectibleBehaviorPowerCharged));
+
             // Patch VE's charger so its IChargeableItem reads bind to the
             // correct per-stack energy while it services our suit.
             if (!HarmonyLib.Harmony.HasAnyPatches(HarmonyId))
@@ -78,9 +83,12 @@ namespace VEPowersuit
                 .RegisterMessageType<ToggleFlightPacket>()
                 .RegisterMessageType<EnergySyncPacket>()
                 .RegisterMessageType<InstallModulePacket>()
+                .RegisterMessageType<ModuleStatePacket>()
+                .RegisterMessageType<RequestModuleStatePacket>()
                 .SetMessageHandler<ToggleModulePacket>(OnToggleModule)
                 .SetMessageHandler<ToggleFlightPacket>(OnToggleFlight)
-                .SetMessageHandler<InstallModulePacket>(OnInstallModule);
+                .SetMessageHandler<InstallModulePacket>(OnInstallModule)
+                .SetMessageHandler<RequestModuleStatePacket>(OnRequestModuleState);
 
             // 1Hz drain/maintenance tick.
             api.Event.RegisterGameTickListener(OnServerTick, 1000);
@@ -116,6 +124,11 @@ namespace VEPowersuit
                 if (slot == null) { StopFlight(player); continue; }
                 var stack = slot.Itemstack;
 
+                // Seed a fresh stack (e.g. a creative-tab suit) so it's charged
+                // and configured the first time it's worn.
+                if (stack?.Collectible is ItemVEPowersuit suit0)
+                    suit0.EnsureInitialized(stack);
+
                 bool flying = flyingPlayers.Contains(player.PlayerUID);
 
                 // Drain per-tick modules.
@@ -123,7 +136,8 @@ namespace VEPowersuit
                 {
                     var mod = kv.Value;
                     if (mod.EnergyPerTick <= 0) continue;
-                    if (!EnergyStore.HasModule(stack, kv.Key)) continue;
+                    // Must be installed AND switched on in the GUI.
+                    if (!EnergyStore.IsEnabled(stack, kv.Key)) continue;
 
                     // Flight only drains while actually flying.
                     if (kv.Key == ModuleRegistry.Flight && !flying) continue;
@@ -138,6 +152,14 @@ namespace VEPowersuit
                     }
                 }
 
+                // If flight got switched off in the GUI (or uninstalled) while
+                // airborne, drop the player out of flight.
+                if (flying && !EnergyStore.IsEnabled(stack, ModuleRegistry.Flight))
+                {
+                    StopFlight(player);
+                    flying = false;
+                }
+
                 // Apply sprint-assist movement bonus.
                 ApplySprintAssist(player, stack);
 
@@ -148,7 +170,7 @@ namespace VEPowersuit
 
         private void ApplySprintAssist(IPlayer player, ItemStack stack)
         {
-            bool active = EnergyStore.HasModule(stack, ModuleRegistry.SprintAssist)
+            bool active = EnergyStore.IsEnabled(stack, ModuleRegistry.SprintAssist)
                           && player.Entity.Controls.Sprint
                           && EnergyStore.GetEnergy(stack) > 0;
 
@@ -163,7 +185,8 @@ namespace VEPowersuit
             if (slot == null) return;
             var stack = slot.Itemstack;
 
-            if (!EnergyStore.HasModule(stack, ModuleRegistry.Flight)) return;
+            // Flight must be installed AND switched on in the GUI to engage.
+            if (!EnergyStore.IsEnabled(stack, ModuleRegistry.Flight)) { StopFlight(player); return; }
 
             if (packet.WantFlying && EnergyStore.GetEnergy(stack) > 0)
                 StartFlight(player);
@@ -200,9 +223,55 @@ namespace VEPowersuit
             var slot = GetChestSlot(player);
             if (slot == null) return;
             var stack = slot.Itemstack;
-            bool now = !EnergyStore.HasModule(stack, packet.ModuleCode);
-            EnergyStore.SetModule(stack, packet.ModuleCode, now);
+
+            // GUI toggles ENABLED state of an already-installed module.
+            // (Installation happens at the installer block, not here.)
+            if (!EnergyStore.HasModule(stack, packet.ModuleCode))
+            {
+                // Not installed: nothing to toggle; just resync so the client
+                // GUI corrects itself.
+                SendModuleState(player, stack);
+                return;
+            }
+
+            bool now = !EnergyStore.IsEnabled(stack, packet.ModuleCode);
+            EnergyStore.SetEnabled(stack, packet.ModuleCode, now);
+
+            // If they just turned flight off, make sure they stop flying.
+            if (packet.ModuleCode == ModuleRegistry.Flight && !now)
+                StopFlight(player);
+
             slot.MarkDirty();
+            SendModuleState(player, stack);
+        }
+
+        private void OnRequestModuleState(IServerPlayer player, RequestModuleStatePacket packet)
+        {
+            var slot = GetChestSlot(player);
+            SendModuleState(player, slot?.Itemstack);
+        }
+
+        /// <summary>Send the installed+enabled state of all modules to the player's GUI.</summary>
+        private void SendModuleState(IServerPlayer player, ItemStack stack)
+        {
+            var codes = new List<string>();
+            var installed = new List<bool>();
+            var enabled = new List<bool>();
+
+            foreach (var kv in ModuleRegistry.All)
+            {
+                codes.Add(kv.Key);
+                bool inst = stack != null && EnergyStore.HasModule(stack, kv.Key);
+                installed.Add(inst);
+                enabled.Add(inst && EnergyStore.IsEnabled(stack, kv.Key));
+            }
+
+            serverChannel.SendPacket(new ModuleStatePacket
+            {
+                Codes = codes.ToArray(),
+                Installed = installed.ToArray(),
+                Enabled = enabled.ToArray()
+            }, player);
         }
 
         private void OnInstallModule(IServerPlayer player, InstallModulePacket packet)
@@ -241,6 +310,11 @@ namespace VEPowersuit
         public int LastMaxEnergy { get; private set; }
         public bool LastFlying { get; private set; }
 
+        // Latest module install/enable state from the server, keyed by code.
+        public readonly Dictionary<string, (bool installed, bool enabled)> ModuleState = new();
+
+        private Gui.GuiDialogModules openModuleDialog;
+
         public override void StartClientSide(ICoreClientAPI api)
         {
             capi = api;
@@ -249,7 +323,10 @@ namespace VEPowersuit
                 .RegisterMessageType<ToggleFlightPacket>()
                 .RegisterMessageType<EnergySyncPacket>()
                 .RegisterMessageType<InstallModulePacket>()
-                .SetMessageHandler<EnergySyncPacket>(OnEnergySync);
+                .RegisterMessageType<ModuleStatePacket>()
+                .RegisterMessageType<RequestModuleStatePacket>()
+                .SetMessageHandler<EnergySyncPacket>(OnEnergySync)
+                .SetMessageHandler<ModuleStatePacket>(OnModuleState);
             staticClientChannel = clientChannel;
 
             api.Input.RegisterHotKey("vepowersuit_flight", Lang.Get("vepowersuit:hotkey-flight"),
@@ -275,8 +352,30 @@ namespace VEPowersuit
 
         private bool OnGuiHotkey(KeyCombination comb)
         {
-            new Gui.GuiDialogModules(capi, this, clientChannel).TryOpen();
+            if (openModuleDialog != null && openModuleDialog.IsOpened())
+            {
+                openModuleDialog.TryClose();
+                return true;
+            }
+            openModuleDialog = new Gui.GuiDialogModules(capi, this, clientChannel);
+            openModuleDialog.TryOpen();
+            // Ask the server for current module state so buttons render correctly.
+            clientChannel.SendPacket(new RequestModuleStatePacket());
             return true;
+        }
+
+        private void OnModuleState(ModuleStatePacket p)
+        {
+            ModuleState.Clear();
+            int n = p.Codes?.Length ?? 0;
+            for (int i = 0; i < n; i++)
+            {
+                bool inst = p.Installed != null && i < p.Installed.Length && p.Installed[i];
+                bool en = p.Enabled != null && i < p.Enabled.Length && p.Enabled[i];
+                ModuleState[p.Codes[i]] = (inst, en);
+            }
+            // Refresh the GUI if it's open so buttons reflect the new state.
+            openModuleDialog?.RefreshStates();
         }
 
         private void OnEnergySync(EnergySyncPacket p)

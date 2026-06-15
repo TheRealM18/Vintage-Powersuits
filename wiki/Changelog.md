@@ -1,5 +1,140 @@
 # Changelog
 
+## 0.8.0 — Charging redesign: minimal bind-only patch + diagnostics
+
+### Changed
+- **`chargable` back to `false`.** VE's charger now uses its clean, tested
+  INTERFACE branch for our suit (reads `IChargeableItem` and calls
+  `ReceivePower`). The `chargable: true` durability-redirect approach is gone —
+  it relied on VE's durability branch, which never calls the interface, so EU
+  never landed.
+- **Replaced the reflection patch with `VEChargerBindPatch`** — a tiny
+  prefix/postfix that only binds the charger's input stack to the thread-local
+  for the duration of VE's original `OnSimTick`, then unbinds. No reflection
+  into VE power fields, no branch replacement, no state-machine handling. VE
+  does all the charging; we only tell the shared Item instance which stack it's
+  charging. Removed `VEChargerDurabilityRedirectPatch`.
+
+### Added
+- **Charge diagnostics.** `ItemVEPowersuit.ReceivePower` now logs (VerboseDebug)
+  each time EU lands — `charged N EU (before -> after / max)` — and warns if VE
+  calls it with no bound stack. Watch `client-debug.log` / `server-debug.log`
+  with a suit in a charger to confirm power is registering.
+
+### Why this should finally work
+- The suit's stored EU (`EnergyStore`) was always correct; the HUD, flight, and
+  module drain read it directly. The only broken link was the charger never
+  writing to it, because the binding/patch chain was fragile. This version uses
+  VE's own charging code end-to-end and only adds the one thing VE structurally
+  cannot do (stack identity), so there is almost nothing left to misfire.
+- Power math sanity (VE ticks ~100ms, maxPPS 2000): ~200 EU/tick into a 200000
+  buffer. Non-zero and correct once the stack is bound.
+
+## 0.7.0 — Module toggles fixed; creative pre-charged suit
+
+### Fixed
+- **GUI buttons now reflect and keep their state.** The dialog never set button
+  pressed-state and the toggle handler ignored the on/off value, so buttons
+  never looked active. Buttons are now driven by authoritative server state
+  (`ModuleStatePacket`), set `Toggleable = true`, and stay lit while the module
+  is enabled. Non-installed modules show disabled.
+- **Installed vs. enabled split.** The old toggle flipped *installed* state
+  (effectively uninstalling). Added `EnergyStore.IsEnabled` / `SetEnabled`
+  separate from `HasModule` (installed). The GUI now toggles ENABLED on an
+  already-installed module; the tick loop, sprint assist, and flight all gate on
+  `IsEnabled`.
+- **Flight now responds to the toggle.** Turning the flight module off in the
+  GUI (or running out of power) drops the player out of flight. The flight
+  hotkey only engages when flight is installed AND enabled.
+
+### Added
+- **Creative-only, pre-charged suit variant.** Each armor piece now has a
+  `type` variant group (`normal`, `creative`). Only the `creative` variant
+  appears in creative tabs; it spawns fully charged and (for testing) with all
+  modules pre-installed. The `normal` variant is the craftable one and starts
+  empty. Driven by the `fullChargeOnGet` and `defaultModules` byType attributes
+  and a new idempotent `ItemVEPowersuit.EnsureInitialized`.
+- New packets `ModuleStatePacket` (server→client) and `RequestModuleStatePacket`
+  (client→server) so the GUI can fetch live state on open.
+
+### Notes
+- Crafting recipes now output the `-normal` variant; variant-specific lang keys
+  added. `SuitHelper`/installer key off the `isCore` attribute, not item codes,
+  so they're unaffected by the new variant suffix.
+- Verified GUI API against VS 1.22.2 docs (`GuiElementToggleButton.SetValue`,
+  `.Toggleable`, `.Enabled`; `ITreeAttribute.HasAttribute/RemoveAttribute`).
+
+## 0.6.0 — Single patch: redirect chargeable durability into EU
+
+### Changed
+- **`chargable` is now `true`** in all three armor itemtypes. This sends VE's
+  charger down its durability charge branch for our pieces.
+- **One Harmony patch only.** Removed `VEChargerPatch` and
+  `VEChargerLoadFixPatch`. New `VEChargerDurabilityRedirectPatch` intercepts
+  `BELVCharger.OnSimTick` and, for our power-only pieces only, redirects the
+  power the durability branch would have spent into the suit's EU energy store
+  (via `IChargeableItem`), debiting the charger by exactly what the suit
+  accepts. It mirrors VE's own guards (not-enough-juice pause, On/Paused state
+  transitions). Every other item falls through to VE unchanged.
+- Durability stays pinned by the power-only behavior's `OnDamageItem`, so the
+  redirected power becomes pure EU, never durability.
+
+### Notes
+- Verified against Vintage Engineering source (FlexibleGames/VintageEngineering,
+  `release` branch): `BELVCharger.OnSimTick`, `InvCharger.CanContain`.
+- The earlier empty-charger load crash is a separate VE-side bug; it is not
+  re-introduced by this change, but this version no longer ships a workaround
+  for it. Say the word if you want that guard added back as part of this patch.
+
+## 0.5.1 — Charging actually works; charger load-crash workaround
+
+### Fixed
+- **Suit now charges.** `ItemVEPowersuit.RatedPower(dt, false)` returned 0,
+  but VE's charger calls exactly that (`RatedPower(dt, false)`) to decide how
+  much to push into the item — so it computed "push 0" and charged nothing.
+  `RatedPower` now always reports the receive rating. This was the core reason
+  pieces took no durability (behavior working) but also gained no power.
+- **Empty VE chargers no longer get discarded on world load.** VE's
+  `BELVCharger.FromTreeAttributes` does `InputSlot.Itemstack.Clone()` with no
+  null check; an empty saved charger throws NullReferenceException and the
+  block entity is discarded ("Failed loading a blockentity in a chunk"). New
+  `VEChargerLoadFixPatch` guards the empty-slot case and loads the charger
+  safely; non-empty chargers run VE's original unchanged. (VE-side bug; this is
+  a defensive workaround.)
+
+### Changed
+- **`VEChargerPatch` rewritten as a thin bind-only prefix/postfix.** Instead of
+  reflectively replacing VE's whole charge tick (brittle: any renamed VE member
+  silently disabled charging), it now just binds the per-stack context around
+  VE's own (correct) `OnSimTick` and lets VE charge through `IChargeableItem`.
+- **Removed** `SuitChargeSession.cs` and `SuitChargeAssessor.cs` — the old
+  reflective charge/accessor path, now unused and superseded by VE's own logic.
+
+### Notes
+- Verified against Vintage Engineering source (FlexibleGames/VintageEngineering,
+  `release` branch): `BELVCharger`, `ElectricBEBehavior`, `IChargeableItem`.
+
+## 0.5.0 — Power-only charging behavior
+
+- New `CollectibleBehaviorPowerCharged` (`vepowersuitpowercharged`): an explicit
+  per-piece switch that declares a suit piece **power-only**. When attached:
+  - The piece charges through the EU energy store via the existing Harmony
+    patch — never through VE's durability-topup route. `chargable` stays
+    `false` in the itemtype JSON.
+  - `OnDamageItem` cancels all vanilla durability loss, so the piece never
+    wears down or breaks; only stored EU depletes.
+  - The held-item tooltip notes the piece is power-only.
+- `VEChargerPatch` now only takes over the charger tick for pieces whose
+  `CollectibleBehaviorPowerCharged.WantsPatchCharging` is true; a suit piece
+  without the behavior falls through to VE so its JSON `chargable` flag decides.
+- `ItemVEPowersuit` gained `PowerCharged`, `IsPowerOnly`, and
+  `WantsPatchCharging` accessors and a power-only charge-hint tooltip.
+- Behavior registered in `Start` via `RegisterCollectibleBehaviorClass`; the
+  three armor itemtypes carry the behavior (with default properties); two new
+  lang keys added.
+- Config knobs (in the behavior's JSON `properties`): `powerOnly`,
+  `patchCharging`, `noDurability` (all default true).
+
 ## 0.4.0 — All modules now functional
 
 - Jump Assist: rising-edge jump detection adds upward velocity and spends

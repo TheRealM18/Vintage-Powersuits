@@ -18,18 +18,52 @@ the suit's own EU energy store (`EnergyStore`), the same value the modules drain
 VE's `IChargeableItem` getters (`CurrentPower`, `MaxPower`, `MaxPPS`,
 `RatedPower`) take no `ItemStack`, but a single `Item` instance is shared by
 every stack in the world. To resolve power for the *specific* suit being
-charged, a small Harmony patch (`VEChargerPatch`) wraps `BELVCharger.OnSimTick`
-and binds that charger's input stack to a thread-local context for the duration
-of the tick. The interface members read/write that bound stack. The patch is
+charged, the single Harmony patch (`VEChargerDurabilityRedirectPatch`) binds that
+charger's input stack to a thread-local context for the duration of the EU
+transfer. The interface members read/write that bound stack. The patch is
 reflective and self-disabling: if VE renames the method, it no-ops cleanly.
 
 ### Files
 
 - `src/Items/ItemVEPowersuit.cs` — implements `IChargeableItem`.
+- `src/Behaviors/CollectibleBehaviorPowerCharged.cs` — the power-only switch.
 - `src/Systems/VEPowerAdapter.cs` — the EU↔VE power math (rated receive,
   receive-with-leftover, extract-with-remainder), matching VE's contracts.
-- `src/Systems/VEChargerPatch.cs` — Harmony patch for per-stack binding.
+- `src/Systems/VEChargerDurabilityRedirectPatch.cs` — the single Harmony patch;
+  redirects VE's durability-charge branch into the EU store.
 - `src/Systems/EnergyStore.cs` — adds `MaxPPS` storage.
+
+## Power-only pieces (`vepowersuitpowercharged`)
+
+A suit piece can be flagged **power-only** by attaching the
+`vepowersuitpowercharged` collectible behavior in its itemtype JSON:
+
+```json
+"behaviors": [
+  { "name": "Wearable" },
+  { "name": "vepowersuitplayer" },
+  {
+    "name": "vepowersuitpowercharged",
+    "properties": { "powerOnly": true, "patchCharging": true, "noDurability": true }
+  }
+]
+```
+
+With this behavior on (and `"chargable": true` in the same JSON's `attributes`):
+
+- **No durability.** `OnDamageItem` cancels every durability loss, so the piece
+  never wears down or breaks. Its only "fuel" is the EU energy store.
+- **Charges via the Harmony patch.** With `chargable: true`, VE's charger
+  enters its durability-charge branch for the piece. `VEChargerDurabilityRedirectPatch`
+  intercepts that and routes the power into the EU store through `IChargeableItem`
+  instead of restoring durability. Every other item runs VE's original logic.
+- **Opt-in gate.** The patch only takes over when the behavior is present and
+  `patchCharging` is true. A suit piece without the behavior falls through to
+  VE, whose `chargable` flag then decides what happens.
+
+Properties (all default `true`): `powerOnly` (treat condition as EU),
+`patchCharging` (allow the charger patch to service this piece), `noDurability`
+(cancel durability loss).
 
 ## Tuning
 

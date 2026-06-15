@@ -9,13 +9,13 @@
   },
   "creativeinventory": {
     "general": [
-      "*"
+      "*-creative"
     ],
     "items": [
-      "*"
+      "*-creative"
     ],
     "vepowersuit": [
-      "*"
+      "*-creative"
     ]
   },
   "maxstacksize": 1,
@@ -27,12 +27,29 @@
     },
     {
       "name": "vepowersuitplayer"
+    },
+    {
+      "name": "vepowersuitpowercharged",
+      "properties": {
+        "powerOnly": true,
+        "patchCharging": true,
+        "noDurability": true
+      }
     }
   ],
   "attributes": {
     "isCore": true,
     "maxEnergy": 200000,
-    "defaultModules": [],
+    "defaultModules": {
+      "normal": [],
+      "creative": [
+        "flight",
+        "sprintassist",
+        "jumpassist",
+        "falldamage",
+        "nightvision"
+      ]
+    },
     "visibleDamageEffect": false,
     "clothesCategory": "armorbody",
     "attachableToEntity": {
@@ -52,7 +69,11 @@
       ]
     },
     "maxPPS": 2000,
-    "chargable": false
+    "chargable": false,
+    "fullChargeOnGet": {
+      "normal": false,
+      "creative": true
+    }
   },
   "guiTransform": {
     "rotation": {
@@ -79,5 +100,14 @@
       "z": 0.5
     },
     "scale": 2
-  }
+  },
+  "variantgroups": [
+    {
+      "code": "type",
+      "states": [
+        "normal",
+        "creative"
+      ]
+    }
+  ]
 }

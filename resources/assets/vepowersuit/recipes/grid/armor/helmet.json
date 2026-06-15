@@ -1,9 +1,20 @@
 {
   "ingredientPattern": "PPP,PGP,_G_",
-  "width": 3, "height": 3,
+  "width": 3,
+  "height": 3,
   "ingredients": {
-    "P": { "type": "item", "code": "vinteng:machineplate-temporalsteel" },
-    "G": { "type": "item", "code": "vinteng:ingot-temporalsteel" }
+    "P": {
+      "type": "item",
+      "code": "vinteng:machineplate-temporalsteel"
+    },
+    "G": {
+      "type": "item",
+      "code": "vinteng:ingot-temporalsteel"
+    }
   },
-  "output": { "type": "item", "code": "vepowersuit:vepowersuit-helmet", "quantity": 1 }
+  "output": {
+    "type": "item",
+    "code": "vepowersuit:vepowersuit-helmet-normal",
+    "quantity": 1
+  }
 }
