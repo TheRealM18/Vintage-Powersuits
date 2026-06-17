@@ -15,7 +15,7 @@ namespace VEPowersuit.Blocks
     ///   slot 0 = the power-armor piece to modify
     ///   slot 1 = a power-module item to install
     /// TryInstall() reads the module's code from the module item and sets the
-    /// corresponding module flag on the armor via EnergyStore, then consumes the
+    /// corresponding module flag on the armor via SuitModules, then consumes the
     /// module item.
     ///
     /// IMPORTANT (this is what was broken): a BlockEntityOpenableContainer only
@@ -84,13 +84,13 @@ namespace VEPowersuit.Blocks
                 failReason = "badmodule";
                 return false;
             }
-            if (EnergyStore.HasModule(armor, code))
+            if (SuitModules.IsInstalled(armor, code))
             {
                 failReason = "duplicate";
                 return false;
             }
 
-            EnergyStore.SetModule(armor, code, true);
+            SuitModules.SetInstalled(armor, code, true);
             ModuleSlot.TakeOut(1);
             ArmorSlot.MarkDirty();
             ModuleSlot.MarkDirty();

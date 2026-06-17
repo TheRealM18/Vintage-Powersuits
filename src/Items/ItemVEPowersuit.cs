@@ -1,135 +1,129 @@
 using System;
 using System.Text;
-using VEPowersuit.Behaviors;
 using VEPowersuit.Systems;
 using VEPowersuit.Modules;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
-using Vintagestory.API.Util;
 using VintageEngineering.Electrical;
 
 namespace VEPowersuit.Items
 {
     /// <summary>
-    /// Power-armor item. Implements Vintage Engineering's IChargeableItem so VE
-    /// chargers (LV/MV/HV) can push power straight into the suit's energy store.
+    /// Power-armor item. Extends VE's ItemChargable (the new base class for
+    /// chargeable items) and lets that base own the power model. Power is stored
+    /// on the STACK in attribute "currentpower" via the inherited
+    /// SetPower(stack, ...).
     ///
-    /// PER-STACK NOTE: IChargeableItem's getters carry no ItemStack, but a single
-    /// Item instance is shared by every stack in the world. VE's charger block
-    /// entity (BELVCharger.OnSimTick) reads CurrentPower / MaxPower / RatedPower
-    /// and then calls ReceivePower for ONE slot, synchronously, within a single
-    /// tick. We make that correct by binding the stack VE is about to service to
-    /// a [ThreadStatic] context (via the charger Harmony patch) for the
-    /// duration of that read/charge sequence. "chargable" is set to FALSE in the
-    /// itemtype JSON, so VE never runs its durability-topup charge route for us;
-    /// instead VEChargerBindPatch (gated on the CollectibleBehaviorPowerCharged
-    /// behavior) fully takes over the charger tick and routes power through this
-    /// IChargeableItem interface into the EU store. The EU store remains the
-    /// single source of truth for the suit's power, and durability is left
-    /// untouched (the behavior also cancels any durability loss).
+    /// WHY WE RE-LIST IChargeableItem AND new-shadow a few members:
+    /// ItemChargable.CurrentPower reads from the shared collectible JSON
+    /// (this.Attributes["currentpower"]) while SetPower writes to the STACK, and
+    /// none of its members are virtual. So per-stack charge can't be read back
+    /// through the base as-is. By re-declaring IChargeableItem in our base list
+    /// and providing `new` members that read the stack, C# builds a fresh
+    /// interface map for this type: VE's charger (which calls through an
+    /// IChargeableItem reference) dispatches to OUR stack-correct members.
+    ///
+    /// The interface's parameterless CurrentPower can't see a stack, so we cache
+    /// the stack VE is currently servicing (set at the top of each stack-passing
+    /// call) and read it there. The charger reads CurrentPower right next to the
+    /// stack-passing calls on the same tick, so the context is always valid.
+    ///
+    /// JSON drives config: maxpower, maxpps, canreceivepower, canextractpower.
+    /// Durability is cancelled (power-only). Modules + creative pre-charge live
+    /// here; module state lives in SuitModules.
     /// </summary>
-    public class ItemVEPowersuit : Item, IChargeableItem
+    public class ItemVEPowersuit : ItemChargable, IChargeableItem
     {
+        public const string PowerKey = "currentpower";
+
         public bool IsCore => Attributes?["isCore"]?.AsBool(false) ?? false;
 
-        /// <summary>
-        /// The power-charged behavior on this piece, or null if not attached.
-        /// When present, this piece is treated as power-only: charged through
-        /// the EU store via the Harmony patch, with durability loss cancelled so
-        /// it never drains. See <see cref="CollectibleBehaviorPowerCharged"/>.
-        /// </summary>
-        public CollectibleBehaviorPowerCharged PowerCharged
-            => GetBehavior<CollectibleBehaviorPowerCharged>();
+        // The stack VE is currently charging (set by each stack-passing call so
+        // the parameterless CurrentPower getter the charger uses resolves to it).
+        [ThreadStatic] private static ItemStack _ctx;
 
-        /// <summary>True if this piece runs on EU instead of durability.</summary>
-        public bool IsPowerOnly => PowerCharged?.IsPowerOnly ?? false;
+        // ---- stack-correct power readout (shadows the base) ----
 
-        /// <summary>True if the charger Harmony patch should service this piece.</summary>
-        public bool WantsPatchCharging => PowerCharged?.WantsPatchCharging ?? false;
+        public new ulong CurrentPower => ReadPower(_ctx);
 
-        // The stack VE is currently charging on this thread. Bound by
-        // BindChargingStack() (call site: see VEChargeContext below) so the
-        // parameterless IChargeableItem getters resolve to the right stack.
-        [ThreadStatic] private static ItemStack _veActiveStack;
+        private ulong ReadPower(ItemStack stack)
+            => stack == null ? 0UL : (ulong)Math.Max(0L, stack.Attributes.GetLong(PowerKey, 0));
 
-        /// <summary>
-        /// Bind the stack VE is about to charge so the IChargeableItem members
-        /// below resolve against it. Returns a disposable scope that clears the
-        /// binding. Called by the charger patch around VE's charger tick.
-        /// </summary>
-        public static VEChargeContext BindChargingStack(ItemStack stack)
-            => new VEChargeContext(stack, prev => _veActiveStack = prev, _veActiveStack, s => _veActiveStack = s);
+        // MaxPower / MaxPPS / CanReceivePower / CanExtractPower / SetPower /
+        // CheatPower are inherited from ItemChargable (they read JSON or the
+        // stack correctly already).
 
-        private static ItemStack Active => _veActiveStack;
+        // ---- re-implemented interface methods (stack-correct) ----
 
-        public override void OnLoaded(ICoreAPI api)
+        public new ulong RatedPower(ItemStack stack, float dt, bool isInsert = false)
         {
-            base.OnLoaded(api);
-        }
-
-        // ---------------- IChargeableItem ----------------
-
-        public ulong MaxPower
-            => Active == null ? 0UL : (ulong)Math.Max(0, EnergyStore.GetMaxEnergy(Active));
-
-        public ulong CurrentPower
-            => Active == null ? 0UL : (ulong)Math.Max(0, EnergyStore.GetEnergy(Active));
-
-        public ulong MaxPPS
-            => Active == null ? 0UL : (ulong)Math.Max(0, EnergyStore.GetMaxPPS(Active));
-
-        // The suit only consumes power for its own modules; it does not feed the
-        // VE grid back. Flip CanExtractPower to true (and the JSON) if you want a
-        // discharge station to pull from it.
-        public bool CanExtractPower => false;
-        public bool CanReceivePower => true;
-
-        public ulong RatedPower(float dt, bool isInsert = false)
-        {
-            if (Active == null) return 0;
-
-            // VE's charger (BELVCharger.OnSimTick) calls this as
-            // RatedPower(dt, false) to learn how much power it may PUSH INTO the
-            // suit this tick (it uses the result as "powertopush"). VE passes
-            // isInsert:false there, so we must report the RECEIVE rating for
-            // both cases — the suit only ever accepts power, it is not an
-            // extractable source. Returning 0 for isInsert:false (the old
-            // behavior) made VE compute powertopush = 0 and charge nothing.
-            return VEPowerAdapter.RatedReceive(Active, dt);
-        }
-
-        public ulong ReceivePower(ulong powerOffered, float dt, bool simulate = false)
-        {
-            if (Active == null)
+            _ctx = stack;
+            ulong rate = (ulong)Math.Round(MaxPPS * dt);
+            if (isInsert)
             {
-                api?.Logger.VerboseDebug("[vepowersuit] ReceivePower called with no bound stack (offered={0})", powerOffered);
-                return powerOffered;
+                if (!CanReceivePower) return 0;
+                ulong room = MaxPower - ReadPower(stack);
+                return room < rate ? room : rate;
             }
-
-            int before = EnergyStore.GetEnergy(Active);
-            ulong leftover = VEPowerAdapter.ReceiveFromVE(Active, powerOffered, dt, simulate);
-            if (!simulate)
-            {
-                int after = EnergyStore.GetEnergy(Active);
-                if (after != before)
-                    api?.Logger.VerboseDebug("[vepowersuit] charged {0} EU ({1} -> {2} / {3}), offered={4}, leftover={5}",
-                        after - before, before, after, EnergyStore.GetMaxEnergy(Active), powerOffered, leftover);
-            }
-            return leftover;
+            if (!CanExtractPower) return 0;
+            ulong cur = ReadPower(stack);
+            if (cur == 0) return 0;
+            return cur < rate ? cur : rate;
         }
 
-        public ulong ExtractPower(ulong powerWanted, float dt, bool simulate = false)
-            => Active == null
-                ? powerWanted
-                : VEPowerAdapter.ExtractToVE(Active, powerWanted, dt, simulate);
-
-        public void CheatPower(bool drain = false)
+        public new ulong ReceivePower(ItemStack stack, ulong powerOffered, float dt, bool simulate = false)
         {
-            if (Active == null) return;
-            EnergyStore.SetEnergy(Active, drain ? 0 : EnergyStore.GetMaxEnergy(Active));
+            _ctx = stack;
+            ulong cur = ReadPower(stack);
+            if (cur >= MaxPower) return powerOffered;          // full, bounce
+            if (simulate) return RatedPower(stack, dt, true);
+
+            ulong pps = (ulong)Math.Round((MaxPPS * 1.05) * dt);
+            if (pps == 0) pps = ulong.MaxValue; else pps += 2;
+
+            ulong room = MaxPower - cur;
+            if (pps > room) pps = room;
+
+            if (pps >= powerOffered)
+            {
+                SetPower(stack, cur + powerOffered);
+                return 0;
+            }
+            SetPower(stack, cur + pps);
+            return powerOffered - pps;
         }
 
-        // ---------------- crafting / tooltips ----------------
+        public new ulong ExtractPower(ItemStack stack, ulong powerWanted, float dt, bool simulate = false)
+        {
+            _ctx = stack;
+            ulong cur = ReadPower(stack);
+            if (cur == 0 || !CanExtractPower) return powerWanted;
+            if (simulate) return RatedPower(stack, dt, false);
+
+            ulong pps = (ulong)Math.Round((MaxPPS * 1.05) * dt);
+            if (pps == 0) pps = ulong.MaxValue;
+            if (pps > cur) pps = cur;
+
+            if (pps >= powerWanted)
+            {
+                SetPower(stack, cur - powerWanted);
+                return 0;
+            }
+            SetPower(stack, cur - pps);
+            return powerWanted - pps;
+        }
+
+        // ---- power-only: cancel durability loss ----
+
+        public override void OnDamageItem(IWorldAccessor world, Entity byEntity,
+            ItemSlot itemslot, ref int amount, ref EnumHandling bhHandling)
+        {
+            amount = 0;
+            bhHandling = EnumHandling.PreventDefault;
+        }
+
+        // ---- crafting / creative pre-charge ----
 
         public override void OnCreatedByCrafting(ItemSlot[] allInputslots, ItemSlot outputSlot,
             IRecipeBase byRecipe)
@@ -138,47 +132,26 @@ namespace VEPowersuit.Items
             EnsureInitialized(outputSlot?.Itemstack);
         }
 
-        /// <summary>
-        /// Seed a stack's max-energy, max-PPS, and default modules if not done
-        /// yet, and — for the creative variant (attribute
-        /// <c>fullChargeOnGet</c> true) — fill it to max energy. Idempotent:
-        /// keyed on whether the max-energy attribute has been written, so it
-        /// runs once per stack (covers both crafted and creative-tab stacks).
-        /// </summary>
+        /// <summary>One-time per-stack seed (idempotent via "paInit").</summary>
         public void EnsureInitialized(ItemStack stack)
         {
-            if (stack?.Attributes == null) return;
+            if (stack?.Attributes == null || stack.Attributes.GetBool("paInit", false)) return;
+            stack.Attributes.SetBool("paInit", true);
 
-            bool firstTime = !stack.Attributes.HasAttribute("paMaxEnergy");
-            if (!firstTime) return;
-
-            int max = Attributes?["maxEnergy"]?.AsInt(100000) ?? 100000;
-            EnergyStore.SetMaxEnergy(stack, max);
-
-            int pps = Attributes?["maxPPS"]?.AsInt(2000) ?? 2000;
-            EnergyStore.SetMaxPPS(stack, pps);
-
-            // Default modules: variant-aware. Reads "defaultModules" if it's a
-            // plain array (or a ByType that VS already resolved), else resolves
-            // "defaultModulesByType" by this stack's variant ourselves.
             foreach (var code in ResolveDefaultModules())
             {
                 if (string.IsNullOrEmpty(code)) continue;
-                EnergyStore.SetModule(stack, code, true);
+                SuitModules.SetInstalled(stack, code, true);
             }
 
-            // Creative variant comes fully charged. Same variant-aware read.
             if (ResolveFullChargeOnGet())
-                EnergyStore.SetEnergy(stack, EnergyStore.GetMaxEnergy(stack));
+                SetPower(stack, MaxPower);   // inherited; writes stack "currentpower"
         }
 
-        /// <summary>The value of the "type" variant group for this item (e.g. "creative").</summary>
         private string VariantType => Variant?["type"];
 
         private bool ResolveFullChargeOnGet()
         {
-            // 1) Manual ByType resolution against this stack's variant (preferred,
-            //    since custom nested attributes may not be auto-collapsed).
             var byType = Attributes?["fullChargeOnGetByType"];
             if (byType != null && byType.Exists && !byType.IsArray())
             {
@@ -186,18 +159,13 @@ namespace VEPowersuit.Items
                 if (v != null && byType[v] != null && byType[v].Exists) return byType[v].AsBool(false);
                 if (byType["*"] != null && byType["*"].Exists) return byType["*"].AsBool(false);
             }
-
-            // 2) Plain key fallback.
             var plain = Attributes?["fullChargeOnGet"];
-            return plain != null && plain.Exists && !plain.IsArray()
-                ? plain.AsBool(false)
-                : false;
+            return plain != null && plain.Exists && !plain.IsArray() && plain.AsBool(false);
         }
 
         private string[] ResolveDefaultModules()
         {
             var empty = new string[0];
-
             var byType = Attributes?["defaultModulesByType"];
             if (byType != null && byType.Exists && !byType.IsArray())
             {
@@ -207,13 +175,13 @@ namespace VEPowersuit.Items
                 if (byType["*"] != null && byType["*"].Exists)
                     return byType["*"].AsArray<string>() ?? empty;
             }
-
             var plain = Attributes?["defaultModules"];
             if (plain != null && plain.Exists && plain.IsArray())
                 return plain.AsArray<string>() ?? empty;
-
             return empty;
         }
+
+        // ---- tooltip ----
 
         public override void GetHeldItemInfo(ItemSlot inSlot, StringBuilder dsc,
             IWorldAccessor world, bool withDebugInfo)
@@ -223,61 +191,21 @@ namespace VEPowersuit.Items
             var stack = inSlot.Itemstack;
             if (stack == null) return;
 
-            // Make sure a freshly-obtained stack (incl. creative-tab) is seeded.
             EnsureInitialized(stack);
 
-            int e = EnergyStore.GetEnergy(stack);
-            int max = EnergyStore.GetMaxEnergy(stack);
-
-            dsc.AppendLine(Lang.Get("vepowersuit:energy-line", e, max));
+            dsc.AppendLine(Lang.Get("vepowersuit:energy-line", (long)ReadPower(stack), (long)MaxPower));
 
             bool any = false;
             foreach (var kv in ModuleRegistry.All)
             {
-                if (kv.Value == null) continue;
-
-                if (EnergyStore.HasModule(stack, kv.Key))
-                {
-                    if (!any)
-                    {
-                        dsc.AppendLine(Lang.Get("vepowersuit:installed-modules"));
-                        any = true;
-                    }
-
-                    string label = string.IsNullOrEmpty(kv.Value.DisplayLangKey)
-                        ? kv.Key
-                        : Lang.Get(kv.Value.DisplayLangKey);
-
-                    dsc.AppendLine("  - " + label);
-                }
+                if (kv.Value == null || !SuitModules.IsInstalled(stack, kv.Key)) continue;
+                if (!any) { dsc.AppendLine(Lang.Get("vepowersuit:installed-modules")); any = true; }
+                string label = string.IsNullOrEmpty(kv.Value.DisplayLangKey)
+                    ? kv.Key : Lang.Get(kv.Value.DisplayLangKey);
+                dsc.AppendLine("  - " + label);
             }
 
-            if (!VEPowerAdapter.VEIntegrationWired)
-                dsc.AppendLine(Lang.Get("vepowersuit:ve-not-wired"));
-            else if (IsPowerOnly)
-                dsc.AppendLine(Lang.Get("vepowersuit:ve-charge-hint-poweronly"));
-            else
-                dsc.AppendLine(Lang.Get("vepowersuit:ve-charge-hint"));
+            dsc.AppendLine(Lang.Get("vepowersuit:ve-charge-hint"));
         }
-    }
-
-    /// <summary>
-    /// RAII-style scope that binds an ItemStack as the active VE-charging stack
-    /// and restores the previous binding on Dispose. Use with `using`.
-    /// </summary>
-    public readonly struct VEChargeContext : IDisposable
-    {
-        private readonly ItemStack _previous;
-        private readonly Action<ItemStack> _restore;
-
-        public VEChargeContext(ItemStack stack, Action<ItemStack> restore,
-            ItemStack previous, Action<ItemStack> set)
-        {
-            _previous = previous;
-            _restore = restore;
-            set(stack);
-        }
-
-        public void Dispose() => _restore?.Invoke(_previous);
     }
 }

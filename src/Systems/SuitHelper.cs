@@ -41,8 +41,8 @@ namespace VEPowersuit.Systems
         {
             var stack = GetCoreStack(player);
             if (stack == null) return false;
-            if (!EnergyStore.HasModule(stack, moduleCode)) return false;
-            return EnergyStore.GetEnergy(stack) >= minEnergy;
+            if (!SuitModules.IsInstalled(stack, moduleCode)) return false;
+            return SuitPower.Get(stack) >= minEnergy;
         }
     }
 }

@@ -1,5 +1,92 @@
 # Changelog
 
+## 0.9.2 — Extend VE's ItemChargable base class
+
+- `ItemVEPowersuit` now EXTENDS `VintageEngineering.Electrical.ItemChargable`
+  (the new base class for chargeable items) and lets it own the power model.
+  Power is stored on the stack via the inherited `SetPower(stack, ...)`
+  ("currentpower" attribute).
+- We re-list `IChargeableItem` in our base list and `new`-shadow `CurrentPower`
+  plus the three power methods so they read power from the STACK. ItemChargable's
+  `CurrentPower` reads the shared collectible JSON (not the stack) and isn't
+  virtual, so re-implementing the interface on our type makes VE's charger
+  (which dispatches through an `IChargeableItem` reference) use our
+  stack-correct members. A thread-local holds the stack for the parameterless
+  `CurrentPower` getter the charger reads.
+- `MaxPower`/`MaxPPS`/`CanReceivePower`/`CanExtractPower`/`SetPower`/`CheatPower`
+  are inherited unchanged. JSON still provides `maxpower`/`maxpps`/
+  `canreceivepower`/`canextractpower`.
+
+## 0.9.1 — Remove leftover item behaviors
+
+- Removed the dead `vepowersuitpowercharged` behavior entry from the chest/
+  helmet/legs itemtype JSONs (its C# class was deleted in 0.9.0; durability-
+  cancel is now `OnDamageItem` on the item).
+- Removed `vepowersuitplayer` from the item `behaviors` list — that is an
+  ENTITY behavior, attached to the player entity at runtime (PlayerJoin), not an
+  item behavior. Items only carry `Wearable` now.
+
+## 0.9.0 — Rewrite for VE dev branch: no Harmony, no custom storage
+
+Major simplification, targeting Vintage Engineering's **dev** branch where
+`IChargeableItem` now passes the `ItemStack` into every method.
+
+### Removed
+- **All Harmony patches** and the `0Harmony` reference. VE's charger now hands
+  the stack to the interface, so the per-stack binding patch is unnecessary.
+- **Custom energy storage** (`EnergyStore`) and the EU↔VE adapter
+  (`VEPowerAdapter`). Power now lives in the stack attribute `currentpower`
+  (the same one VE's `ItemChargable` uses).
+- **`CollectibleBehaviorPowerCharged`** behavior — power-only is now just an
+  `OnDamageItem` override on the item.
+- The experimental cloned charger block (`BESuitCharger`/`InvSuitCharger` and
+  its blocktype) — VE's own charger works directly now.
+
+### Changed
+- **`ItemVEPowersuit` implements the new stack-passing `IChargeableItem`
+  directly** (not by extending VE's `ItemChargable`, whose `CurrentPower` reads
+  the shared collectible JSON and isn't virtual — it can't track per-stack
+  charge). All power reads/writes are correct per-stack.
+- Itemtype attributes renamed to VE's names: `maxpower`, `maxpps`,
+  `canreceivepower`, `canextractpower`. `chargable` stays false (we take VE's
+  IChargeableItem branch).
+- Power access for HUD/flight/modules goes through a thin `SuitPower` accessor
+  over `currentpower`; module install/enable state lives in `SuitModules`.
+
+### Notes / caveats
+- VE's dev branch is mid-refactor: `BELVCharger.OnSimTick` still calls the OLD
+  parameterless `chargeableItem.RatedPower(dt,false)` / `ReceivePower(...)`,
+  which don't match the new interface — VE's charger won't compile until they
+  finish. Our mod is written to the NEW interface and will work once VE's dev
+  charger is fixed to pass the stack.
+- VE dev's `ItemChargable.CurrentPower` reads collectible JSON, not the stack
+  (a bug). We avoid it entirely by implementing the interface ourselves.
+
+## 0.8.1 — Fix creative pre-charge (byType key) + both variants in creative
+
+### Fixed
+- **Creative suit no longer spawns at 0 energy.** The pre-charge and default
+  modules were written as plain attributes whose *value* was a variant object
+  (`"fullChargeOnGet": {"creative": true}`). VS only does byType resolution when
+  the suffix is on the KEY (`fullChargeOnGetByType`), so `AsBool()` saw an
+  object and returned the default (false) — hence 0 EU. Renamed the keys to
+  `fullChargeOnGetByType` / `defaultModulesByType`, and `EnsureInitialized` now
+  resolves them variant-aware in code (with `*` fallback and a plain-key
+  fallback), so it works regardless of whether the engine auto-collapses nested
+  custom attributes.
+
+### Changed
+- **Both variants now appear in creative** (`creativeinventory: ["*"]`), not
+  just the creative one — the normal (craftable, empty) and creative (charged,
+  all modules) variants are both available in the tabs.
+
+### Notes
+- Verified against vsapi source: `JsonObject.IsArray()` exists (no `IsObject()`),
+  `RegistryObject.Variant` is inherited by `CollectibleObject`, so
+  `Variant["type"]` resolves the variant in code.
+- The energy attribute is written when the stack lands in a real inventory slot;
+  the creative-tab hover reflects it once initialized.
+
 ## 0.8.0 — Charging redesign: minimal bind-only patch + diagnostics
 
 ### Changed

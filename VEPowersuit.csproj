@@ -55,10 +55,6 @@
       <HintPath>$(VintageStoryPath)\Lib\protobuf-net.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>$(VintageStoryPath)\Lib\0Harmony.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
 
     <!-- VINTAGE ENGINEERING — required dependency.
          Uses the VintageEngineeringDll property defined above. The pre-build

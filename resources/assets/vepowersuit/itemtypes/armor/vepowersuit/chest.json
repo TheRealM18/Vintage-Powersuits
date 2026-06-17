@@ -9,13 +9,13 @@
   },
   "creativeinventory": {
     "general": [
-      "*-creative"
+      "*"
     ],
     "items": [
-      "*-creative"
+      "*"
     ],
     "vepowersuit": [
-      "*-creative"
+      "*"
     ]
   },
   "maxstacksize": 1,
@@ -24,32 +24,10 @@
   "behaviors": [
     {
       "name": "Wearable"
-    },
-    {
-      "name": "vepowersuitplayer"
-    },
-    {
-      "name": "vepowersuitpowercharged",
-      "properties": {
-        "powerOnly": true,
-        "patchCharging": true,
-        "noDurability": true
-      }
     }
   ],
   "attributes": {
     "isCore": true,
-    "maxEnergy": 200000,
-    "defaultModules": {
-      "normal": [],
-      "creative": [
-        "flight",
-        "sprintassist",
-        "jumpassist",
-        "falldamage",
-        "nightvision"
-      ]
-    },
     "visibleDamageEffect": false,
     "clothesCategory": "armorbody",
     "attachableToEntity": {
@@ -68,12 +46,27 @@
         }
       ]
     },
-    "maxPPS": 2000,
     "chargable": false,
-    "fullChargeOnGet": {
-      "normal": false,
-      "creative": true
-    }
+    "fullChargeOnGetByType": {
+      "creative": true,
+      "*": false
+    },
+    "defaultModulesByType": {
+      "creative": [
+        "flight",
+        "sprintassist",
+        "jumpassist",
+        "falldamage",
+        "nightvision"
+      ],
+      "*": []
+    },
+    "fullChargeOnGet": false,
+    "defaultModules": [],
+    "maxpower": 200000,
+    "maxpps": 2000,
+    "canreceivepower": true,
+    "canextractpower": false
   },
   "guiTransform": {
     "rotation": {

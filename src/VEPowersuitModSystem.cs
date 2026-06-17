@@ -15,11 +15,9 @@ namespace VEPowersuit
     public class VEPowersuitModSystem : ModSystem
     {
         private const string Channel = "vepowersuit";
-        private const string HarmonyId = "vepowersuit.vepatches";
 
         private ICoreServerAPI sapi;
         private ICoreClientAPI capi;
-        private HarmonyLib.Harmony harmony;
         private IServerNetworkChannel serverChannel;
         private IClientNetworkChannel clientChannel;
         private Systems.NightVisionRenderer nightVision;
@@ -48,29 +46,10 @@ namespace VEPowersuit
             // Module installer block + its block entity.
             api.RegisterBlockClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockModuleInstaller));
             api.RegisterBlockEntityClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockEntityModuleInstaller));
-
-            // Entity behavior that drives jump-assist and fall-damage negation.
-            // Attached to player entities at runtime (see StartServerSide).
-            api.RegisterEntityBehaviorClass("vepowersuitplayer", typeof(Behaviors.EntityBehaviorPowerSuit));
-
-            // Collectible behavior: marks a suit piece as power-only (charged
-            // through the EU store via the Harmony patch, durability ignored).
-            api.RegisterCollectibleBehaviorClass("vepowersuitpowercharged",
-                typeof(Behaviors.CollectibleBehaviorPowerCharged));
-
-            // Patch VE's charger so its IChargeableItem reads bind to the
-            // correct per-stack energy while it services our suit.
-            if (!HarmonyLib.Harmony.HasAnyPatches(HarmonyId))
-            {
-                harmony = new HarmonyLib.Harmony(HarmonyId);
-                harmony.PatchAll(typeof(VEPowersuitModSystem).Assembly);
-            }
         }
 
         public override void Dispose()
         {
-            harmony?.UnpatchAll(HarmonyId);
-            harmony = null;
             base.Dispose();
         }
 
@@ -137,7 +116,7 @@ namespace VEPowersuit
                     var mod = kv.Value;
                     if (mod.EnergyPerTick <= 0) continue;
                     // Must be installed AND switched on in the GUI.
-                    if (!EnergyStore.IsEnabled(stack, kv.Key)) continue;
+                    if (!SuitModules.IsEnabled(stack, kv.Key)) continue;
 
                     // Flight only drains while actually flying.
                     if (kv.Key == ModuleRegistry.Flight && !flying) continue;
@@ -145,7 +124,7 @@ namespace VEPowersuit
                     if (kv.Key == ModuleRegistry.SprintAssist &&
                         !player.Entity.Controls.Sprint) continue;
 
-                    if (!EnergyStore.TryConsume(stack, mod.EnergyPerTick))
+                    if (!SuitPower.TryConsume(stack, mod.EnergyPerTick))
                     {
                         // Out of power: kill the dependent capability.
                         if (kv.Key == ModuleRegistry.Flight) StopFlight(player);
@@ -154,7 +133,7 @@ namespace VEPowersuit
 
                 // If flight got switched off in the GUI (or uninstalled) while
                 // airborne, drop the player out of flight.
-                if (flying && !EnergyStore.IsEnabled(stack, ModuleRegistry.Flight))
+                if (flying && !SuitModules.IsEnabled(stack, ModuleRegistry.Flight))
                 {
                     StopFlight(player);
                     flying = false;
@@ -170,9 +149,9 @@ namespace VEPowersuit
 
         private void ApplySprintAssist(IPlayer player, ItemStack stack)
         {
-            bool active = EnergyStore.IsEnabled(stack, ModuleRegistry.SprintAssist)
+            bool active = SuitModules.IsEnabled(stack, ModuleRegistry.SprintAssist)
                           && player.Entity.Controls.Sprint
-                          && EnergyStore.GetEnergy(stack) > 0;
+                          && SuitPower.Get(stack) > 0;
 
             const string statCode = "vepowersuit_sprint";
             float bonus = active ? ModuleRegistry.SprintWalkSpeedBonus : 0f;
@@ -186,9 +165,9 @@ namespace VEPowersuit
             var stack = slot.Itemstack;
 
             // Flight must be installed AND switched on in the GUI to engage.
-            if (!EnergyStore.IsEnabled(stack, ModuleRegistry.Flight)) { StopFlight(player); return; }
+            if (!SuitModules.IsEnabled(stack, ModuleRegistry.Flight)) { StopFlight(player); return; }
 
-            if (packet.WantFlying && EnergyStore.GetEnergy(stack) > 0)
+            if (packet.WantFlying && SuitPower.Get(stack) > 0)
                 StartFlight(player);
             else
                 StopFlight(player);
@@ -226,7 +205,7 @@ namespace VEPowersuit
 
             // GUI toggles ENABLED state of an already-installed module.
             // (Installation happens at the installer block, not here.)
-            if (!EnergyStore.HasModule(stack, packet.ModuleCode))
+            if (!SuitModules.IsInstalled(stack, packet.ModuleCode))
             {
                 // Not installed: nothing to toggle; just resync so the client
                 // GUI corrects itself.
@@ -234,8 +213,8 @@ namespace VEPowersuit
                 return;
             }
 
-            bool now = !EnergyStore.IsEnabled(stack, packet.ModuleCode);
-            EnergyStore.SetEnabled(stack, packet.ModuleCode, now);
+            bool now = !SuitModules.IsEnabled(stack, packet.ModuleCode);
+            SuitModules.SetEnabled(stack, packet.ModuleCode, now);
 
             // If they just turned flight off, make sure they stop flying.
             if (packet.ModuleCode == ModuleRegistry.Flight && !now)
@@ -261,9 +240,9 @@ namespace VEPowersuit
             foreach (var kv in ModuleRegistry.All)
             {
                 codes.Add(kv.Key);
-                bool inst = stack != null && EnergyStore.HasModule(stack, kv.Key);
+                bool inst = stack != null && SuitModules.IsInstalled(stack, kv.Key);
                 installed.Add(inst);
-                enabled.Add(inst && EnergyStore.IsEnabled(stack, kv.Key));
+                enabled.Add(inst && SuitModules.IsEnabled(stack, kv.Key));
             }
 
             serverChannel.SendPacket(new ModuleStatePacket
@@ -299,8 +278,8 @@ namespace VEPowersuit
             if (player is IServerPlayer sp)
                 serverChannel.SendPacket(new EnergySyncPacket
                 {
-                    Energy = EnergyStore.GetEnergy(stack),
-                    MaxEnergy = EnergyStore.GetMaxEnergy(stack),
+                    Energy = (int)SuitPower.Get(stack),
+                    MaxEnergy = (int)SuitPower.Max(stack),
                     Flying = flying
                 }, sp);
         }
