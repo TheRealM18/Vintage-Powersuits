@@ -1,11 +1,11 @@
 {
-  "code": "vepowersuit-legs",
+  "code": "vepowersuit-chest",
   "class": "ItemVEPowersuit",
   "shape": {
-    "base": "vepowersuit:item/armor/vepowersuit/legs"
+    "base": "vepowersuit:item/armor/vepowersuit/chest"
   },
   "texture": {
-    "base": "vepowersuit:item/armor/vepowersuit/legs"
+    "base": "vepowersuit:item/armor/vepowersuit/chest"
   },
   "creativeinventory": {
     "general": [
@@ -19,7 +19,6 @@
     ]
   },
   "maxstacksize": 1,
-  "durability": 5500,
   "storageFlags": 128,
   "behaviors": [
     {
@@ -27,14 +26,14 @@
     }
   ],
   "attributes": {
-    "isCore": false,
+    "isCore": true,
     "visibleDamageEffect": false,
-    "clothesCategory": "armorlegs",
+    "clothesCategory": "armorbody",
     "attachableToEntity": {
-      "categoryCode": "armorlegs",
+      "categoryCode": "armorbody",
       "attachedShapeBySlotCode": {
-        "armorlegs": {
-          "base": "game:entity/humanoid/seraph/armor/plate/legs"
+        "armorbody": {
+          "base": "game:entity/humanoid/seraph/armor/plate/body"
         }
       }
     },
@@ -46,13 +45,13 @@
         }
       ]
     },
-    "chargable": false,
+    "chargable": true,
     "fullChargeOnGetByType": {
-      "creative": true,
+      "*-creative": true,
       "*": false
     },
     "defaultModulesByType": {
-      "creative": [
+      "*-chest-creative": [
         "flight",
         "sprintassist",
         "jumpassist",
@@ -62,8 +61,7 @@
       "*": []
     },
     "fullChargeOnGet": false,
-    "defaultModules": [],
-    "maxpower": 80000,
+    "maxpower": 200000,
     "maxpps": 2000,
     "canreceivepower": true,
     "canextractpower": false

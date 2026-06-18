@@ -1,4 +1,5 @@
 using VEPowersuit.Items;
+using VintageEngineering.Electrical;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 
@@ -16,7 +17,7 @@ namespace VEPowersuit.Systems
         /// Returns the inventory slot holding the worn CORE power-suit piece
         /// (the chestplate, flagged isCore in JSON), or null if none is worn.
         /// </summary>
-        public static ItemSlot GetCoreSlot(IPlayer player)
+        public static ItemSlot? GetCoreSlot(IPlayer player)
         {
             var inv = player?.InventoryManager?.GetOwnInventory(GlobalConstants.characterInvClassName);
             if (inv == null) return null;
@@ -30,7 +31,7 @@ namespace VEPowersuit.Systems
         }
 
         /// <summary>The worn core suit's itemstack, or null.</summary>
-        public static ItemStack GetCoreStack(IPlayer player)
+        public static ItemStack? GetCoreStack(IPlayer player)
             => GetCoreSlot(player)?.Itemstack;
 
         /// <summary>
@@ -39,10 +40,10 @@ namespace VEPowersuit.Systems
         /// </summary>
         public static bool HasActiveModule(IPlayer player, string moduleCode, int minEnergy = 1)
         {
-            var stack = GetCoreStack(player);
+            ItemStack? stack = GetCoreStack(player);
             if (stack == null) return false;
             if (!SuitModules.IsInstalled(stack, moduleCode)) return false;
-            return SuitPower.Get(stack) >= minEnergy;
+            return ((int)((stack as IChargeableItem)?.CurrentPower(stack) ?? 0)) >= minEnergy;
         }
     }
 }

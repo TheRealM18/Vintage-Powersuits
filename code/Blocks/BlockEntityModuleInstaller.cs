@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using VEPowersuit.Items;
 using VEPowersuit.Modules;
@@ -30,6 +31,7 @@ namespace VEPowersuit.Blocks
     public class BlockEntityModuleInstaller : BlockEntityOpenableContainer
     {
         private readonly InventoryGeneric inventory;
+        [AllowNull]
         private GuiDialogModuleInstaller clientDialog;
 
         public override InventoryBase Inventory => inventory;
@@ -63,7 +65,7 @@ namespace VEPowersuit.Blocks
         /// </summary>
         public bool TryInstall(out string failReason)
         {
-            failReason = null;
+            failReason = string.Empty;
             var armor = ArmorSlot.Itemstack;
             var module = ModuleSlot.Itemstack;
 
@@ -78,8 +80,8 @@ namespace VEPowersuit.Blocks
                 return false;
             }
 
-            string code = module.Collectible.Attributes?["moduleCode"]?.AsString(null);
-            if (code == null || ModuleRegistry.Get(code) == null)
+            string code = module.Collectible.Attributes?["moduleCode"].AsString(string.Empty) ?? string.Empty;
+            if (code == string.Empty || ModuleRegistry.Get(code) == null)
             {
                 failReason = "badmodule";
                 return false;

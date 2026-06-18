@@ -1,11 +1,11 @@
 {
-  "code": "vepowersuit-helmet",
+  "code": "vepowersuit-legs",
   "class": "ItemVEPowersuit",
   "shape": {
-    "base": "vepowersuit:item/armor/vepowersuit/helmet"
+    "base": "vepowersuit:item/armor/vepowersuit/legs"
   },
   "texture": {
-    "base": "vepowersuit:item/armor/vepowersuit/helmet"
+    "base": "vepowersuit:item/armor/vepowersuit/legs"
   },
   "creativeinventory": {
     "general": [
@@ -19,7 +19,6 @@
     ]
   },
   "maxstacksize": 1,
-  "durability": 5500,
   "storageFlags": 128,
   "behaviors": [
     {
@@ -29,12 +28,12 @@
   "attributes": {
     "isCore": false,
     "visibleDamageEffect": false,
-    "clothesCategory": "armorhead",
+    "clothesCategory": "armorlegs",
     "attachableToEntity": {
-      "categoryCode": "armorhead",
+      "categoryCode": "armorlegs",
       "attachedShapeBySlotCode": {
-        "armorhead": {
-          "base": "game:entity/humanoid/seraph/armor/plate/head"
+        "armorlegs": {
+          "base": "game:entity/humanoid/seraph/armor/plate/legs"
         }
       }
     },
@@ -46,7 +45,7 @@
         }
       ]
     },
-    "chargable": false,
+    "chargable": true,
     "fullChargeOnGetByType": {
       "creative": true,
       "*": false
@@ -63,7 +62,7 @@
     },
     "fullChargeOnGet": false,
     "defaultModules": [],
-    "maxpower": 60000,
+    "maxpower": 80000,
     "maxpps": 2000,
     "canreceivepower": true,
     "canextractpower": false

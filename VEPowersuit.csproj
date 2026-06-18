@@ -12,25 +12,29 @@
          Prefers the VINTAGE_STORY env var; falls back to the default install path.
          This is the AppData\Roaming\Vintagestory folder (NOT VintagestoryData). -->
     <VintageStoryPath Condition="'$(VINTAGE_STORY)' != ''">$(VINTAGE_STORY)</VintageStoryPath>
-    <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">C:\Users\rober\AppData\Roaming\Vintagestory</VintageStoryPath>
+    <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">$(APPDATA)\Vintagestory</VintageStoryPath>
+    <VINTAGE_STORY Condition="'$(VINTAGE_STORY)' == ''">$(VintageStoryPath)</VINTAGE_STORY>
 
     <!-- DOWNLOADED MODS FOLDER (where Vintage Engineering installs to).
          This is the VintagestoryData\Mods folder, a DIFFERENT folder from above. -->
-    <VintageStoryDataPath Condition="'$(VintageStoryDataPath)' == ''">C:\Users\rober\AppData\Roaming\VintagestoryData</VintageStoryDataPath>
+    <VintageStoryDataPath Condition="'$(VINTAGE_STORY_DATA)' != ''">$(VINTAGE_STORY_DATA)</VintageStoryDataPath>
+    <VintageStoryDataPath Condition="'$(VintageStoryDataPath)' == ''">$(APPDATA)\VintagestoryData</VintageStoryDataPath>
 
-    <!-- VINTAGE ENGINEERING dll location. VE ships as a ZIP, so its dll is NOT
-         loose on disk by default. Extract vintageengineering.dll from
-         VintagestoryData\Mods\vintageengineering_*.zip and point this at it.
-         Override on the command line if you put it elsewhere:
-           dotnet build -p:VintageEngineeringDll=C:\path\to\vintageengineering.dll -->
+    <!-- VINTAGE ENGINEERING dependency. This is a mod DLL/project reference, not a NuGet package.
+         Use VINTAGE_ENGINEERING for a cloned repo or VintageEngineeringDll for a built/extracted dll. -->
+    <VintageEngineeringPath Condition="'$(VINTAGE_ENGINEERING)' != ''">$(VINTAGE_ENGINEERING)</VintageEngineeringPath>
+    <VintageEngineeringPath Condition="'$(VintageEngineeringPath)' == '' And Exists('$(MSBuildThisFileDirectory)..\deps\VintageEngineering\code\VintageEngineering\VintageEngineering.csproj')">$(MSBuildThisFileDirectory)..\deps\VintageEngineering</VintageEngineeringPath>
+    <VintageEngineeringProject Condition="'$(VintageEngineeringProject)' == '' And '$(VintageEngineeringPath)' != '' And Exists('$(VintageEngineeringPath)\code\VintageEngineering\VintageEngineering.csproj')">$(VintageEngineeringPath)\code\VintageEngineering\VintageEngineering.csproj</VintageEngineeringProject>
+    <VintageEngineeringProject Condition="'$(VintageEngineeringProject)' == '' And '$(VintageEngineeringPath)' != '' And Exists('$(VintageEngineeringPath)\VintageEngineering\VintageEngineering.csproj')">$(VintageEngineeringPath)\VintageEngineering\VintageEngineering.csproj</VintageEngineeringProject>
+    <VintageEngineeringProject Condition="'$(VintageEngineeringProject)' == '' And '$(VintageEngineeringPath)' != '' And Exists('$(VintageEngineeringPath)\VintageEngineering.csproj')">$(VintageEngineeringPath)\VintageEngineering.csproj</VintageEngineeringProject>
     <VintageEngineeringDll Condition="'$(VintageEngineeringDll)' == ''">$(VintageStoryDataPath)\Mods\vintageengineering.dll</VintageEngineeringDll>
   </PropertyGroup>
 
-  <Target Name="CheckVintageStory" BeforeTargets="ResolveReferences">
+  <Target Name="CheckVintageStoryReferences" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('$(VintageStoryPath)\VintagestoryAPI.dll')"
-           Text="VintagestoryAPI.dll not found at '$(VintageStoryPath)'. Set the VINTAGE_STORY environment variable to your game install folder (the one containing VintagestoryAPI.dll), or edit VintageStoryPath in this .csproj." />
-    <Error Condition="!Exists('$(VintageEngineeringDll)')"
-           Text="vintageengineering.dll not found at '$(VintageEngineeringDll)'. This mod now requires Vintage Engineering. VE ships as a ZIP, so extract vintageengineering.dll from VintagestoryData\Mods\vintageengineering_*.zip and either place it at that path or pass -p:VintageEngineeringDll=C:\full\path\to\vintageengineering.dll to the build." />
+           Text="VintagestoryAPI.dll not found at '$(VintageStoryPath)'. Set VINTAGE_STORY to the Vintage Story install folder." />
+    <Error Condition="'$(VintageEngineeringProject)' == '' And !Exists('$(VintageEngineeringDll)')"
+           Text="Vintage Engineering dependency not found. Set VINTAGE_ENGINEERING to the cloned FlexibleGames/VintageEngineering repo, pass -p:VintageEngineeringProject=C:\path\to\VintageEngineering.csproj, or pass -p:VintageEngineeringDll=C:\path\to\vintageengineering.dll. If using the downloaded mod zip, extract vintageengineering.dll into $(VintageStoryDataPath)\Mods." />
   </Target>
 
   <ItemGroup>
@@ -55,32 +59,16 @@
       <HintPath>$(VintageStoryPath)\Lib\protobuf-net.dll</HintPath>
       <Private>false</Private>
     </Reference>
-
-    <!-- VINTAGE ENGINEERING — required dependency.
-         Uses the VintageEngineeringDll property defined above. The pre-build
-         CheckVintageStory target errors with a clear message if it's missing.
-         Reminder: VE ships zipped, so you must extract vintageengineering.dll
-         from VintagestoryData\Mods\vintageengineering_*.zip to that path. -->
-    <Reference Include="vintageengineering">
+    <Reference Include="vintageengineering" Condition="'$(VintageEngineeringProject)' == ''">
       <HintPath>$(VintageEngineeringDll)</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="resources/**">
-      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <!-- Safety net: never compile the pre-rename files if they linger in the
-       working folder. After the rename to VEPowersuit these must not exist;
-       this exclusion prevents the duplicate-namespace build errors if an old
-       copy is left behind. Delete the real files; this is just a guard. -->
-  <ItemGroup>
-    <Compile Remove="src/PowerArmorModSystem.cs" />
-    <Compile Remove="src/Items/ItemPowerArmor.cs" />
+  <ItemGroup Condition="'$(VintageEngineeringProject)' != ''">
+    <ProjectReference Include="$(VintageEngineeringProject)" PrivateAssets="all" ReferenceOutputAssembly="true">
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

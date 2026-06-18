@@ -6,9 +6,9 @@
     "THeRealM18"
   ],
   "description": "Electric power armor for Vintage Engineering. Flight, sprint assist, and modular upgrades inspired by Machine Muse Powersuits.",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "dependencies": {
-    "game": "1.22.3",
+    "game": "",
     "vintageengineering": ""
   }
 }

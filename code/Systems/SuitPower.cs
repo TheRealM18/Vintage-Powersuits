@@ -14,13 +14,13 @@ namespace VEPowersuit.Systems
     {
         public const string Key = "currentpower";
 
-        public static long Get(ItemStack stack)
+        public static long Get(ItemStack? stack)
             => stack?.Attributes?.GetLong(Key, 0) ?? 0;
 
-        public static long Max(ItemStack stack)
+        public static long Max(ItemStack? stack)
             => stack?.Collectible is ItemVEPowersuit suit ? (long)suit.MaxPower : 0;
 
-        public static void Set(ItemStack stack, long value)
+        public static void Set(ItemStack? stack, long value)
         {
             if (stack == null) return;
             long max = Max(stack);
@@ -30,7 +30,7 @@ namespace VEPowersuit.Systems
         }
 
         /// <summary>Consume up to amount; returns true if there was enough.</summary>
-        public static bool TryConsume(ItemStack stack, long amount)
+        public static bool TryConsume(ItemStack? stack, long amount)
         {
             long cur = Get(stack);
             if (cur < amount) return false;

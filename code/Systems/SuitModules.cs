@@ -17,7 +17,7 @@ namespace VEPowersuit.Systems
         private const string InstalledKey = "paModules";
         private const string EnabledKey = "paModulesEnabled";
 
-        public static bool IsInstalled(ItemStack stack, string code)
+        public static bool IsInstalled(ItemStack? stack, string code)
         {
             var tree = stack?.Attributes?.GetTreeAttribute(InstalledKey);
             return tree != null && tree.GetBool(code, false);
@@ -36,14 +36,14 @@ namespace VEPowersuit.Systems
         }
 
         /// <summary>Installed module switched ON? False if not installed; defaults ON when installed.</summary>
-        public static bool IsEnabled(ItemStack stack, string code)
+        public static bool IsEnabled(ItemStack? stack, string code)
         {
             if (!IsInstalled(stack, code)) return false;
             var tree = stack?.Attributes?.GetTreeAttribute(EnabledKey);
             return tree == null || !tree.HasAttribute(code) || tree.GetBool(code, true);
         }
 
-        public static void SetEnabled(ItemStack stack, string code, bool enabled)
+        public static void SetEnabled(ItemStack? stack, string code, bool enabled)
         {
             if (stack == null || !IsInstalled(stack, code)) return;
             var tree = stack.Attributes.GetOrAddTreeAttribute(EnabledKey);

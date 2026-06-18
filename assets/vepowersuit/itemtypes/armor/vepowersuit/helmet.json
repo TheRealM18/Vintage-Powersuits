@@ -1,11 +1,11 @@
 {
-  "code": "vepowersuit-chest",
+  "code": "vepowersuit-helmet",
   "class": "ItemVEPowersuit",
   "shape": {
-    "base": "vepowersuit:item/armor/vepowersuit/chest"
+    "base": "vepowersuit:item/armor/vepowersuit/helmet"
   },
   "texture": {
-    "base": "vepowersuit:item/armor/vepowersuit/chest"
+    "base": "vepowersuit:item/armor/vepowersuit/helmet"
   },
   "creativeinventory": {
     "general": [
@@ -19,7 +19,6 @@
     ]
   },
   "maxstacksize": 1,
-  "durability": 5500,
   "storageFlags": 128,
   "behaviors": [
     {
@@ -27,14 +26,14 @@
     }
   ],
   "attributes": {
-    "isCore": true,
+    "isCore": false,
     "visibleDamageEffect": false,
-    "clothesCategory": "armorbody",
+    "clothesCategory": "armorhead",
     "attachableToEntity": {
-      "categoryCode": "armorbody",
+      "categoryCode": "armorhead",
       "attachedShapeBySlotCode": {
-        "armorbody": {
-          "base": "game:entity/humanoid/seraph/armor/plate/body"
+        "armorhead": {
+          "base": "game:entity/humanoid/seraph/armor/plate/head"
         }
       }
     },
@@ -46,7 +45,7 @@
         }
       ]
     },
-    "chargable": false,
+    "chargable": true,
     "fullChargeOnGetByType": {
       "creative": true,
       "*": false
@@ -63,7 +62,7 @@
     },
     "fullChargeOnGet": false,
     "defaultModules": [],
-    "maxpower": 200000,
+    "maxpower": 60000,
     "maxpps": 2000,
     "canreceivepower": true,
     "canextractpower": false

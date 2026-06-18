@@ -3,6 +3,7 @@ using VEPowersuit.Items;
 using VEPowersuit.Modules;
 using VEPowersuit.Network;
 using VEPowersuit.Systems;
+using VintageEngineering.Electrical;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -16,16 +17,16 @@ namespace VEPowersuit
     {
         private const string Channel = "vepowersuit";
 
-        private ICoreServerAPI sapi;
-        private ICoreClientAPI capi;
-        private IServerNetworkChannel serverChannel;
-        private IClientNetworkChannel clientChannel;
-        private Systems.NightVisionRenderer nightVision;
+        private ICoreServerAPI? sapi;
+        private ICoreClientAPI? capi;
+        private IServerNetworkChannel? serverChannel;
+        private IClientNetworkChannel? clientChannel;
+        private Systems.NightVisionRenderer? nightVision;
 
         // Static client-channel ref so block entities (which don't hold the mod
         // system instance) can send the install request through our own stable
         // network channel rather than the version-finicky block-entity packet API.
-        private static IClientNetworkChannel staticClientChannel;
+        private static IClientNetworkChannel? staticClientChannel;
 
         /// <summary>Called from the installer block's GUI to request an install.</summary>
         public static void SendInstall(Vintagestory.API.Client.ICoreClientAPI capi,
@@ -79,15 +80,9 @@ namespace VEPowersuit
 
         private void OnPlayerJoin(IServerPlayer player)
         {
-            var entity = player?.Entity;
-            if (entity == null) return;
-            if (entity.GetBehavior<Behaviors.EntityBehaviorPowerSuit>() == null)
-            {
-                entity.AddBehavior(new Behaviors.EntityBehaviorPowerSuit(entity));
-            }
         }
 
-        private ItemSlot GetChestSlot(IPlayer player)
+        private ItemSlot? GetChestSlot(IPlayer player)
         {
             // Body-armor slot (the chestplate, flagged isCore in JSON). Shared
             // with the entity behavior and night-vision renderer via SuitHelper
@@ -97,12 +92,13 @@ namespace VEPowersuit
 
         private void OnServerTick(float dt)
         {
+            if (sapi == null) return;
             foreach (IPlayer player in sapi.World.AllOnlinePlayers)
             {
-                var slot = GetChestSlot(player);
+                ItemSlot? slot = GetChestSlot(player);
                 if (slot == null) { StopFlight(player); continue; }
-                var stack = slot.Itemstack;
-
+                ItemStack? stack = slot.Itemstack;
+                if (stack == null) { StopFlight(player); continue; }
                 // Seed a fresh stack (e.g. a creative-tab suit) so it's charged
                 // and configured the first time it's worn.
                 if (stack?.Collectible is ItemVEPowersuit suit0)
@@ -124,10 +120,19 @@ namespace VEPowersuit
                     if (kv.Key == ModuleRegistry.SprintAssist &&
                         !player.Entity.Controls.Sprint) continue;
 
-                    if (!SuitPower.TryConsume(stack, mod.EnergyPerTick))
+                    IChargeableItem? suitpart = stack as IChargeableItem;
+                    if (suitpart == null) continue;
+
+                    ulong rated = suitpart?.RatedPower(stack, dt, false) ?? 0;
+                    if (suitpart?.CurrentPower(stack) == 0 || suitpart?.CurrentPower(stack) < rated)
                     {
-                        // Out of power: kill the dependent capability.
+                        // suit is low on power
                         if (kv.Key == ModuleRegistry.Flight) StopFlight(player);
+                    }
+                    else
+                    {
+                        ulong? newpower = suitpart?.CurrentPower(stack) - rated;
+                        suitpart?.SetPower(stack, newpower.GetValueOrDefault());
                     }
                 }
 
@@ -147,11 +152,11 @@ namespace VEPowersuit
             }
         }
 
-        private void ApplySprintAssist(IPlayer player, ItemStack stack)
+        private void ApplySprintAssist(IPlayer player, ItemStack? stack)
         {
             bool active = SuitModules.IsEnabled(stack, ModuleRegistry.SprintAssist)
                           && player.Entity.Controls.Sprint
-                          && SuitPower.Get(stack) > 0;
+                          && (stack as IChargeableItem)?.CurrentPower(stack) > 0;
 
             const string statCode = "vepowersuit_sprint";
             float bonus = active ? ModuleRegistry.SprintWalkSpeedBonus : 0f;
@@ -167,7 +172,7 @@ namespace VEPowersuit
             // Flight must be installed AND switched on in the GUI to engage.
             if (!SuitModules.IsEnabled(stack, ModuleRegistry.Flight)) { StopFlight(player); return; }
 
-            if (packet.WantFlying && SuitPower.Get(stack) > 0)
+            if (packet.WantFlying && (stack as IChargeableItem)?.CurrentPower(stack) > 0)
                 StartFlight(player);
             else
                 StopFlight(player);
@@ -226,12 +231,12 @@ namespace VEPowersuit
 
         private void OnRequestModuleState(IServerPlayer player, RequestModuleStatePacket packet)
         {
-            var slot = GetChestSlot(player);
+            ItemSlot? slot = GetChestSlot(player);
             SendModuleState(player, slot?.Itemstack);
         }
 
         /// <summary>Send the installed+enabled state of all modules to the player's GUI.</summary>
-        private void SendModuleState(IServerPlayer player, ItemStack stack)
+        private void SendModuleState(IServerPlayer player, ItemStack? stack)
         {
             var codes = new List<string>();
             var installed = new List<bool>();
@@ -245,7 +250,7 @@ namespace VEPowersuit
                 enabled.Add(inst && SuitModules.IsEnabled(stack, kv.Key));
             }
 
-            serverChannel.SendPacket(new ModuleStatePacket
+            serverChannel?.SendPacket(new ModuleStatePacket
             {
                 Codes = codes.ToArray(),
                 Installed = installed.ToArray(),
@@ -266,20 +271,20 @@ namespace VEPowersuit
                 if (dx * dx + dy * dy + dz * dz > 12 * 12) return;
             }
 
-            if (sapi.World.BlockAccessor.GetBlockEntity(pos)
+            if (sapi?.World.BlockAccessor.GetBlockEntity(pos)
                 is Blocks.BlockEntityModuleInstaller be)
             {
                 be.TryInstall(out _);
             }
         }
 
-        private void SyncEnergy(IPlayer player, ItemStack stack, bool flying)
-        {
+        private void SyncEnergy(IPlayer player, ItemStack? stack, bool flying)
+        {            
             if (player is IServerPlayer sp)
-                serverChannel.SendPacket(new EnergySyncPacket
+                serverChannel?.SendPacket(new EnergySyncPacket
                 {
-                    Energy = (int)SuitPower.Get(stack),
-                    MaxEnergy = (int)SuitPower.Max(stack),
+                    Energy = (int)((stack as IChargeableItem)?.CurrentPower(stack) ?? 0),
+                    MaxEnergy = (int)((stack as IChargeableItem)?.MaxPower ?? 0),
                     Flying = flying
                 }, sp);
         }
@@ -292,7 +297,7 @@ namespace VEPowersuit
         // Latest module install/enable state from the server, keyed by code.
         public readonly Dictionary<string, (bool installed, bool enabled)> ModuleState = new();
 
-        private Gui.GuiDialogModules openModuleDialog;
+        private Gui.GuiDialogModules? openModuleDialog;
 
         public override void StartClientSide(ICoreClientAPI api)
         {
@@ -325,7 +330,7 @@ namespace VEPowersuit
         private bool OnFlightHotkey(KeyCombination comb)
         {
             // Toggle: ask server for the opposite of current state.
-            clientChannel.SendPacket(new ToggleFlightPacket { WantFlying = !LastFlying });
+            clientChannel?.SendPacket(new ToggleFlightPacket { WantFlying = !LastFlying });
             return true;
         }
 
@@ -336,6 +341,7 @@ namespace VEPowersuit
                 openModuleDialog.TryClose();
                 return true;
             }
+            if (capi == null || clientChannel == null) return false;
             openModuleDialog = new Gui.GuiDialogModules(capi, this, clientChannel);
             openModuleDialog.TryOpen();
             // Ask the server for current module state so buttons render correctly.
@@ -345,12 +351,13 @@ namespace VEPowersuit
 
         private void OnModuleState(ModuleStatePacket p)
         {
-            ModuleState.Clear();
-            int n = p.Codes?.Length ?? 0;
+            ModuleState.Clear();            
+            int n = p.Codes?.Length ?? 0;            
             for (int i = 0; i < n; i++)
             {
-                bool inst = p.Installed != null && i < p.Installed.Length && p.Installed[i];
-                bool en = p.Enabled != null && i < p.Enabled.Length && p.Enabled[i];
+                bool inst = p?.Installed != null && i < p.Installed.Length && p.Installed[i];
+                bool en = p?.Enabled != null && i < p.Enabled.Length && p.Enabled[i];
+                if (p == null || p.Codes == null || p.Codes[i] == null) continue;
                 ModuleState[p.Codes[i]] = (inst, en);
             }
             // Refresh the GUI if it's open so buttons reflect the new state.
