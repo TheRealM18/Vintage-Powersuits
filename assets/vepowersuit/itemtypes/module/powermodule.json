@@ -1,14 +1,46 @@
 {
   "code": "powermodule",
+  "class": "Item",
   "variantgroups": [
-    { "code": "type", "states": ["flight", "sprintassist", "jumpassist", "falldamage", "nightvision"] }
+    {
+      "code": "type",
+      "states": [
+        "flight",
+        "sprintassist",
+        "jumpassist",
+        "falldamage",
+        "nightvision",
+        "stepassist",
+        "waterbreathing",
+        "protection",
+        "heating",
+        "cooling",
+        "swimassist",
+        "battery",
+        "beeprotection",
+        "feeding"
+      ]
+    }
   ],
   "maxstacksize": 16,
   "attributes": {
     "moduleCode": "{type}"
   },
-  "creativeinventory": { "general": ["*"], "items": ["*"], "vepowersuit": ["*"] },
-  "texture": { "base": "vepowersuit:item/module" },
-  "shape": { "base": "game:item/empty" },
-  "guiTransform": { "rotate": false, "scale": 2.4 }
+  "creativeinventory": {
+    "general": [ "*" ],
+    "items": [ "*" ],
+    "vepowersuit": [ "*" ]
+  },
+  "texture": {
+    "base": "vepowersuit:item/module"
+  },
+  "shape": {
+    "base": "game:item/empty"
+  },
+  "guiTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "origin": { "x": 0.5, "y": 0.5, "z": 0.5 },
+    "scale": 2.4
+  }
 }

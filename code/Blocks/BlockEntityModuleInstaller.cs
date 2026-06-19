@@ -86,6 +86,14 @@ namespace VEPowersuit.Blocks
                 failReason = "badmodule";
                 return false;
             }
+            // Slot gating: a module may only go into the armor piece whose slot
+            // it belongs to (helmet / chest / leggings).
+            string? cat = (armor.Collectible as ItemVEPowersuit)?.ClothesCategory;
+            if (!ModuleRegistry.FitsSlot(code, cat))
+            {
+                failReason = "wrongslot";
+                return false;
+            }
             if (SuitModules.IsInstalled(armor, code))
             {
                 failReason = "duplicate";

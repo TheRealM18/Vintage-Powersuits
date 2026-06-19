@@ -47,6 +47,9 @@ namespace VEPowersuit
             // Module installer block + its block entity.
             api.RegisterBlockClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockModuleInstaller));
             api.RegisterBlockEntityClass("VEPowersuitModuleInstaller", typeof(Blocks.BlockEntityModuleInstaller));
+
+            // Damage-handling behavior (protection / fall / bee protection).
+            api.RegisterEntityBehaviorClass("vepowersuitdamage", typeof(Systems.EntityBehaviorPowersuit));
         }
 
         public override void Dispose()
@@ -74,12 +77,20 @@ namespace VEPowersuit
             api.Event.RegisterGameTickListener(OnServerTick, 1000);
             api.Event.PlayerDisconnect += p => StopFlight(p);
 
-            // Attach the jump/fall behavior to each player when they join.
+            // Attach the per-event behavior (jump/fall/protection/bee). Both
+            // events are used because entity readiness can differ by load order;
+            // attachment is idempotent thanks to the GetBehavior null-check.
             api.Event.PlayerJoin += OnPlayerJoin;
+            api.Event.PlayerNowPlaying += OnPlayerJoin;
         }
 
         private void OnPlayerJoin(IServerPlayer player)
         {
+            var e = player?.Entity;
+            if (e == null) return;
+            // Add the per-event behavior once per entity.
+            if (e.GetBehavior<Systems.EntityBehaviorPowersuit>() == null)
+                e.AddBehavior(new Systems.EntityBehaviorPowersuit(e));
         }
 
         private ItemSlot? GetChestSlot(IPlayer player)
@@ -95,62 +106,222 @@ namespace VEPowersuit
             if (sapi == null) return;
             foreach (IPlayer player in sapi.World.AllOnlinePlayers)
             {
-                ItemSlot? slot = GetChestSlot(player);
-                if (slot == null) { StopFlight(player); continue; }
-                ItemStack? stack = slot.Itemstack;
-                if (stack == null) { StopFlight(player); continue; }
-                // Seed a fresh stack (e.g. a creative-tab suit) so it's charged
-                // and configured the first time it's worn.
-                if (stack?.Collectible is ItemVEPowersuit suit0)
-                    suit0.EnsureInitialized(stack);
+                // AllOnlinePlayers also returns players still connecting, whose
+                // entity/behaviors may not be initialized yet. Skip anyone not
+                // fully in-world to avoid NREs inside GetBehavior etc.
+                if (player is IServerPlayer sp && sp.ConnectionState != EnumClientState.Playing) continue;
+                if (player?.Entity == null) continue;
+
+                ItemSlot? coreSlot = GetChestSlot(player);
+                if (coreSlot == null) { StopFlight(player); continue; }
+                ItemStack? coreStack = coreSlot.Itemstack;
+                if (coreStack == null) { StopFlight(player); continue; }
 
                 bool flying = flyingPlayers.Contains(player.PlayerUID);
 
-                // Drain per-tick modules.
-                foreach (var kv in ModuleRegistry.All)
+                // Drain + maintain every worn suit piece. Each module only
+                // matters on the piece whose slot it belongs to; flight/sprint
+                // gating is unchanged.
+                foreach (ItemSlot slot in SuitHelper.GetWornSuitSlots(player))
                 {
-                    var mod = kv.Value;
-                    if (mod.EnergyPerTick <= 0) continue;
-                    // Must be installed AND switched on in the GUI.
-                    if (!SuitModules.IsEnabled(stack, kv.Key)) continue;
+                    ItemStack? stack = slot.Itemstack;
+                    if (stack == null) continue;
 
-                    // Flight only drains while actually flying.
-                    if (kv.Key == ModuleRegistry.Flight && !flying) continue;
-                    // Sprint assist only drains while sprinting.
-                    if (kv.Key == ModuleRegistry.SprintAssist &&
-                        !player.Entity.Controls.Sprint) continue;
+                    // Seed a fresh stack (e.g. a creative-tab suit) so it's charged
+                    // and configured the first time it's worn.
+                    if (stack.Collectible is ItemVEPowersuit suit0)
+                        suit0.EnsureInitialized(stack);
 
-                    IChargeableItem? suitpart = stack as IChargeableItem;
-                    if (suitpart == null) continue;
+                    string? cat = (stack.Collectible as ItemVEPowersuit)?.ClothesCategory;
 
-                    ulong rated = suitpart?.RatedPower(stack, dt, false) ?? 0;
-                    if (suitpart?.CurrentPower(stack) == 0 || suitpart?.CurrentPower(stack) < rated)
+                    // Drain per-tick modules. (Power math below is unchanged.)
+                    foreach (var kv in ModuleRegistry.All)
                     {
-                        // suit is low on power
-                        if (kv.Key == ModuleRegistry.Flight) StopFlight(player);
+                        var mod = kv.Value;
+                        if (mod.EnergyPerTick <= 0) continue;
+                        // Only drain a module on the piece that actually hosts its slot.
+                        if (ModuleRegistry.SlotFor(kv.Key) is string ms && cat != null && ms != cat) continue;
+                        // Must be installed AND switched on in the GUI.
+                        if (!SuitModules.IsEnabled(stack, kv.Key)) continue;
+
+                        // Flight only drains while actually flying.
+                        if (kv.Key == ModuleRegistry.Flight && !flying) continue;
+                        // Sprint assist only drains while sprinting.
+                        if (kv.Key == ModuleRegistry.SprintAssist &&
+                            !player.Entity.Controls.Sprint) continue;
+                        // Swim assist only drains while in/under liquid.
+                        if (kv.Key == ModuleRegistry.SwimAssist &&
+                            !(player.Entity.FeetInLiquid || player.Entity.Swimming)) continue;
+
+                        IChargeableItem? suitpart = stack as IChargeableItem;
+                        if (suitpart == null) continue;
+
+                        ulong rated = suitpart?.RatedPower(stack, dt, false) ?? 0;
+                        if (suitpart?.CurrentPower(stack) == 0 || suitpart?.CurrentPower(stack) < rated)
+                        {
+                            // suit is low on power
+                            if (kv.Key == ModuleRegistry.Flight) StopFlight(player);
+                        }
+                        else
+                        {
+                            ulong? newpower = suitpart?.CurrentPower(stack) - rated;
+                            suitpart?.SetPower(stack, newpower.GetValueOrDefault());
+                        }
                     }
-                    else
-                    {
-                        ulong? newpower = suitpart?.CurrentPower(stack) - rated;
-                        suitpart?.SetPower(stack, newpower.GetValueOrDefault());
-                    }
+
+                    slot.MarkDirty();
                 }
 
                 // If flight got switched off in the GUI (or uninstalled) while
                 // airborne, drop the player out of flight.
-                if (flying && !SuitModules.IsEnabled(stack, ModuleRegistry.Flight))
+                ItemStack? flightStack = SuitHelper.GetSlotForModule(player, ModuleRegistry.Flight)?.Itemstack ?? coreStack;
+                if (flying && !SuitModules.IsEnabled(flightStack, ModuleRegistry.Flight))
                 {
                     StopFlight(player);
                     flying = false;
                 }
 
-                // Apply sprint-assist movement bonus.
-                ApplySprintAssist(player, stack);
+                // Apply movement + life-support module effects (per worn piece).
+                ApplySprintAssist(player, SuitHelper.GetSlotForModule(player, ModuleRegistry.SprintAssist)?.Itemstack);
+                ApplyStepAssist(player);
+                ApplySwimAssist(player);
+                ApplyTemperature(player);
+                ApplyWaterBreathing(player);
+                ApplyFeeding(player, dt);
 
-                slot.MarkDirty();
-                SyncEnergy(player, stack, flying);
+                SyncEnergy(player, coreStack, flying);
             }
         }
+
+        // ---- New module effect appliers -------------------------------------
+
+        private void ApplyStepAssist(IPlayer player)
+        {
+            if (player?.Entity == null) return;
+            var physics = player.Entity.GetBehavior<Vintagestory.GameContent.EntityBehaviorControlledPhysics>();
+            if (physics == null) return;
+
+            bool active = SuitHelper.HasActiveModule(player, ModuleRegistry.StepAssist)
+                          && SuitModules.IsEnabled(
+                                 SuitHelper.GetSlotForModule(player, ModuleRegistry.StepAssist)?.Itemstack,
+                                 ModuleRegistry.StepAssist);
+
+            // Stash the original step height once so we can restore it when off.
+            const string key = "vepowersuit:origStep";
+            var wa = player.Entity.WatchedAttributes;
+            if (active)
+            {
+                if (!wa.HasAttribute(key)) wa.SetFloat(key, physics.StepHeight);
+                physics.StepHeight = ModuleRegistry.StepAssistHeight;
+            }
+            else if (wa.HasAttribute(key))
+            {
+                physics.StepHeight = wa.GetFloat(key);
+                wa.RemoveAttribute(key);
+            }
+        }
+
+        private void ApplySwimAssist(IPlayer player)
+        {
+            if (player?.Entity == null) return;
+            bool inLiquid = player.Entity.FeetInLiquid || player.Entity.Swimming;
+            bool active = inLiquid
+                          && SuitHelper.HasActiveModule(player, ModuleRegistry.SwimAssist)
+                          && SuitModules.IsEnabled(
+                                 SuitHelper.GetSlotForModule(player, ModuleRegistry.SwimAssist)?.Itemstack,
+                                 ModuleRegistry.SwimAssist);
+
+            float bonus = active ? ModuleRegistry.SwimWalkSpeedBonus : 0f;
+            player.Entity.Stats.Set("walkspeed", "vepowersuit_swim", bonus, true);
+        }
+
+        private void ApplyTemperature(IPlayer player)
+        {
+            if (player?.Entity == null) return;
+            var bt = player.Entity.GetBehavior<Vintagestory.GameContent.EntityBehaviorBodyTemperature>();
+            if (bt == null) return;
+
+            bool heating = SuitHelper.HasActiveModule(player, ModuleRegistry.Heating)
+                           && SuitModules.IsEnabled(
+                                  SuitHelper.GetSlotForModule(player, ModuleRegistry.Heating)?.Itemstack,
+                                  ModuleRegistry.Heating);
+            bool cooling = SuitHelper.HasActiveModule(player, ModuleRegistry.Cooling)
+                           && SuitModules.IsEnabled(
+                                  SuitHelper.GetSlotForModule(player, ModuleRegistry.Cooling)?.Itemstack,
+                                  ModuleRegistry.Cooling);
+
+            // Body temperature is stored in the bodyTemp tree under "bodytemp".
+            var wa = player.Entity.WatchedAttributes;
+            var tree = wa.GetTreeAttribute("bodyTemp");
+            if (tree == null) return;
+
+            float cur = tree.GetFloat("bodytemp", 37f);
+            float target = cur;
+            if (heating && cur < ModuleRegistry.HeatingTargetTemp) target = ModuleRegistry.HeatingTargetTemp;
+            if (cooling && cur > ModuleRegistry.CoolingTargetTemp) target = ModuleRegistry.CoolingTargetTemp;
+
+            if (target != cur)
+            {
+                tree.SetFloat("bodytemp", target);
+                wa.MarkPathDirty("bodyTemp");
+            }
+        }
+
+        private void ApplyFeeding(IPlayer player, float dt)
+        {
+            if (player?.Entity == null) return;
+            ItemSlot? slot = SuitHelper.GetSlotForModule(player, ModuleRegistry.Feeding);
+            ItemStack? stack = slot?.Itemstack;
+            if (stack == null) return;
+            if (!SuitModules.IsEnabled(stack, ModuleRegistry.Feeding)) return;
+
+            // Hunger is tracked in WatchedAttributes (currentsaturation / maxsaturation).
+            var wa = player.Entity.WatchedAttributes;
+            var tree = wa.GetTreeAttribute("hunger");
+            float max = tree?.GetFloat("maxsaturation", 1500f) ?? 1500f;
+            float cur = tree?.GetFloat("currentsaturation", max) ?? max;
+            if (max <= 0 || cur >= max * ModuleRegistry.FeedingHungerThreshold) return;
+
+            // Spend a one-shot activation cost, then top the player up.
+            var chargeable = stack as IChargeableItem;
+            ulong rated = chargeable?.RatedPower(stack, dt, false) ?? 0;
+            ulong cost = (ulong)System.Math.Max(ModuleRegistry.All[ModuleRegistry.Feeding].EnergyPerActivation, (int)rated);
+            ulong have = chargeable?.CurrentPower(stack) ?? 0;
+            if (have < cost) return;
+
+            chargeable?.SetPower(stack, have - cost);
+            // ReceiveSaturation is the supported way to restore satiety.
+            player.Entity.ReceiveSaturation(ModuleRegistry.FeedingSaturationPerActivation,
+                Vintagestory.API.Common.EnumFoodCategory.Unknown, 0f, 1f);
+            slot?.MarkDirty();
+        }
+
+        /// <summary>True if the player has the bee-protection module active (read by damage hook).</summary>
+        public bool HasBeeProtection(IPlayer player)
+            => SuitHelper.HasActiveModule(player, ModuleRegistry.BeeProtection)
+               && SuitModules.IsEnabled(
+                      SuitHelper.GetSlotForModule(player, ModuleRegistry.BeeProtection)?.Itemstack,
+                      ModuleRegistry.BeeProtection);
+
+        private void ApplyWaterBreathing(IPlayer player)
+        {
+            if (player?.Entity == null) return;
+            bool active = SuitHelper.HasActiveModule(player, ModuleRegistry.WaterBreathing)
+                          && SuitModules.IsEnabled(
+                                 SuitHelper.GetSlotForModule(player, ModuleRegistry.WaterBreathing)?.Itemstack,
+                                 ModuleRegistry.WaterBreathing);
+            if (!active) return;
+
+            // Top oxygen back up so the player never drowns while powered.
+            var wa = player.Entity.WatchedAttributes;
+            float max = wa.GetFloat("maxoxygen", 40000f);
+            if (wa.GetFloat("oxygen", max) < max)
+            {
+                wa.SetFloat("oxygen", max);
+                wa.MarkPathDirty("oxygen");
+            }
+        }
+
 
         private void ApplySprintAssist(IPlayer player, ItemStack? stack)
         {
@@ -165,7 +336,8 @@ namespace VEPowersuit
 
         private void OnToggleFlight(IServerPlayer player, ToggleFlightPacket packet)
         {
-            var slot = GetChestSlot(player);
+            // Flight lives on the chest; resolve the hosting piece explicitly.
+            var slot = SuitHelper.GetSlotForModule(player, ModuleRegistry.Flight) ?? GetChestSlot(player);
             if (slot == null) return;
             var stack = slot.Itemstack;
 
@@ -204,7 +376,8 @@ namespace VEPowersuit
 
         private void OnToggleModule(IServerPlayer player, ToggleModulePacket packet)
         {
-            var slot = GetChestSlot(player);
+            // Resolve the piece that hosts this module's slot (helmet/chest/legs).
+            var slot = SuitHelper.GetSlotForModule(player, packet.ModuleCode) ?? GetChestSlot(player);
             if (slot == null) return;
             var stack = slot.Itemstack;
 
@@ -214,29 +387,38 @@ namespace VEPowersuit
             {
                 // Not installed: nothing to toggle; just resync so the client
                 // GUI corrects itself.
-                SendModuleState(player, stack);
+                SendModuleState(player, null);
                 return;
             }
 
-            bool now = !SuitModules.IsEnabled(stack, packet.ModuleCode);
+            bool now = packet.DesiredOn;
             SuitModules.SetEnabled(stack, packet.ModuleCode, now);
 
             // If they just turned flight off, make sure they stop flying.
             if (packet.ModuleCode == ModuleRegistry.Flight && !now)
+            {
                 StopFlight(player);
+                // Push an immediate energy/flight sync so the client's LastFlying
+                // (used by the flight hotkey) doesn't lag a full tick behind.
+                SyncEnergy(player, stack, false);
+            }
 
             slot.MarkDirty();
-            SendModuleState(player, stack);
+            SendModuleState(player, null);
         }
 
         private void OnRequestModuleState(IServerPlayer player, RequestModuleStatePacket packet)
         {
-            ItemSlot? slot = GetChestSlot(player);
-            SendModuleState(player, slot?.Itemstack);
+            SendModuleState(player, null);
         }
 
-        /// <summary>Send the installed+enabled state of all modules to the player's GUI.</summary>
-        private void SendModuleState(IServerPlayer player, ItemStack? stack)
+        /// <summary>
+        /// Send the installed+enabled state of all modules to the player's GUI.
+        /// Each module is resolved on the worn piece that hosts its slot, so the
+        /// panel reflects modules across helmet, chest, and leggings.
+        /// The <paramref name="_"/> parameter is ignored (kept for call sites).
+        /// </summary>
+        private void SendModuleState(IServerPlayer player, ItemStack? _)
         {
             var codes = new List<string>();
             var installed = new List<bool>();
@@ -244,10 +426,11 @@ namespace VEPowersuit
 
             foreach (var kv in ModuleRegistry.All)
             {
+                var pieceStack = SuitHelper.GetSlotForModule(player, kv.Key)?.Itemstack;
                 codes.Add(kv.Key);
-                bool inst = stack != null && SuitModules.IsInstalled(stack, kv.Key);
+                bool inst = pieceStack != null && SuitModules.IsInstalled(pieceStack, kv.Key);
                 installed.Add(inst);
-                enabled.Add(inst && SuitModules.IsEnabled(stack, kv.Key));
+                enabled.Add(inst && SuitModules.IsEnabled(pieceStack, kv.Key));
             }
 
             serverChannel?.SendPacket(new ModuleStatePacket

@@ -7,6 +7,9 @@ namespace VEPowersuit.Network
     public class ToggleModulePacket
     {
         public string ModuleCode = "";
+        // Explicit desired enabled-state. Avoids desync from blind server-side
+        // flips when clicks arrive out of order.
+        public bool DesiredOn = true;
     }
 
     /// <summary>

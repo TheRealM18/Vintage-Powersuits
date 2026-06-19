@@ -47,16 +47,15 @@
     },
     "chargable": true,
     "fullChargeOnGetByType": {
-      "creative": true,
+      "*-creative": true,
       "*": false
     },
     "defaultModulesByType": {
-      "creative": [
-        "flight",
-        "sprintassist",
-        "jumpassist",
-        "falldamage",
-        "nightvision"
+      "*-creative": [
+        "nightvision",
+        "waterbreathing",
+        "beeprotection",
+        "feeding"
       ],
       "*": []
     },

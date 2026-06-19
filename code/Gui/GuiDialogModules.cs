@@ -92,21 +92,24 @@ namespace VEPowersuit.Gui
                     enabled = st.enabled;
                 }
 
-                // Not installed → can't toggle on; show as off and disabled.
-                btn.Toggleable = true;   // guarantee it latches when clicked
+                // Ensure the element latches when clicked, is only interactive
+                // when the module is installed, and visually reflects the
+                // authoritative enabled state from the server.
+                btn.Toggleable = true;
                 btn.Enabled = installed;
-                btn.SetValue(installed && enabled);
+                bool target = installed && enabled;
+                btn.SetValue(target);   // sets On + redraws
             }
         }
 
         private void OnToggle(string code, bool wantOn)
         {
-            // Only meaningful for installed modules; if it's not installed the
-            // button is disabled anyway. Server flips enabled-state and replies
-            // with a ModuleStatePacket, which calls RefreshStates() — so the
-            // button settles on the authoritative value (and reverts if the
-            // server refused, e.g. module not installed).
-            channel.SendPacket(new ToggleModulePacket { ModuleCode = code });
+            // Send the EXPLICIT desired state (not a blind flip) so the server
+            // can't desync if clicks arrive out of order. The server applies it
+            // and echoes a ModuleStatePacket, which calls RefreshStates() and
+            // settles the button on the authoritative value (reverting if the
+            // module isn't installed).
+            channel.SendPacket(new ToggleModulePacket { ModuleCode = code, DesiredOn = wantOn });
         }
     }
 }

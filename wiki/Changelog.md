@@ -430,3 +430,86 @@ All notable changes to the mod are recorded here. Newest first.
 > **Maintenance note:** add a new dated section at the top for each change.
 > Group entries under Added / Changed / Fixed / Removed. Update the relevant
 > wiki page in the same edit.
+
+## 0.11.0
+
+Added nine new modules and slot-restricted module installation across the
+three armor pieces (helmet / chest / leggings):
+
+- Helmet: night vision, water breathing, bee protection, auto-feeder.
+- Chest: flight, fall-damage negation, protection, heating, cooling, battery.
+- Leggings: sprint (running), jump assist, step assist, swim assist.
+
+Modules now live on whichever worn piece hosts their slot; the installer
+rejects a module that doesn't fit the piece. Added the seraph `disableElements`
+hide function to all three armor pieces so the suit renders cleanly on the
+character. Power-charging code was not modified.
+
+## 0.11.1
+
+Fixed the pre-existing modules that were broken:
+
+- Module GUI toggle buttons now latch and stay on. The toggle sends an explicit
+  desired on/off state instead of a blind server-side flip, and the button is
+  forced into a latching toggle whose value is driven by the authoritative
+  server reply, so a click sticks.
+- Jump assist now actually fires. A per-event entity behavior detects the
+  rising edge of the jump control while grounded, spends the activation cost,
+  and adds the upward velocity boost.
+- Fall-damage negation now triggers on gravity damage (handled by the same
+  entity behavior).
+- Flight toggled off via the GUI now pushes an immediate flight/energy sync so
+  the flight hotkey's cached state doesn't lag a tick behind.
+- The per-event behavior is attached on both PlayerJoin and PlayerNowPlaying so
+  it is reliably present regardless of load order.
+
+Power-charging code was not modified.
+
+## 0.11.2
+
+Fixed module / variant resolution:
+
+- byType keys (defaultModulesByType, fullChargeOnGetByType) are now resolved
+  with proper VS wildcard matching against the full item code, so the correct
+  form is "*-creative" (matching e.g. vepowersuit-chest-creative) rather than a
+  bare "creative". Restored the "*-creative" keys in all three armor JSONs.
+- Rewrote the powermodule itemtype with a valid guiTransform (the previous
+  "rotate": false was not a valid transform property and could stop the module
+  icons from rendering in the creative menu) and an explicit "class": "Item".
+  All 14 module variants should now appear in the creative inventory.
+
+## 0.11.3
+
+Build fixes (compile errors):
+
+- Removed Newtonsoft/WildcardUtil usage from the byType resolver in
+  ItemVEPowersuit; it now probes candidate keys ("*-{type}", "{type}", "*")
+  through the JsonObject indexer with no extra assembly references, so
+  "*-creative" resolves correctly.
+- Fixed EntityPlayer references (it lives in Vintagestory.API.Common, not
+  .Common.Entities) and accessed Controls via the EntityPlayer/EntityAgent
+  rather than the base Entity type in EntityBehaviorPowersuit.
+- Silenced the nullable-array warning by filtering nulls out of the resolved
+  default-modules array.
+
+## 0.11.4
+
+Crash fix:
+
+- Removed the disableElements lists from all three armor pieces. Disabling
+  structural seraph elements (Head, UpperTorso, arms, feet) breaks the player
+  head controller and crashes tessellation on equip
+  ("Entity 'game:player' shape does not have 'Head' element"). The armor still
+  renders on the character via attachableToEntity, exactly like vanilla plate
+  armor, which only ever hides hair — not the body skeleton.
+
+## 0.11.5
+
+Crash fix (server tick NRE):
+
+- The server tick iterated sapi.World.AllOnlinePlayers, which also includes
+  players still connecting whose entity/behaviors aren't initialized yet. Calling
+  GetBehavior on such an entity threw a NullReferenceException
+  (ApplyStepAssist -> Entity.GetBehavior). The tick now skips any player whose
+  ConnectionState is not Playing, and each effect applier additionally guards
+  against a null player.Entity.

@@ -29,6 +29,12 @@ namespace VEPowersuit.Items
         /// <summary>True for the chestplate (carries shared suit state). Used by SuitHelper.</summary>
         public bool IsCore => Attributes?["isCore"]?.AsBool(false) ?? false;
 
+        /// <summary>
+        /// The armor slot category from JSON ("armorhead" / "armorbody" /
+        /// "armorlegs"). Used to decide which modules a piece can host.
+        /// </summary>
+        public string? ClothesCategory => Attributes?["clothesCategory"]?.AsString(null);
+
         // ---- one-time per-stack setup (default modules + creative pre-charge) ----
 
         public override void OnCreatedByCrafting(ItemSlot[] inputSlots, ItemSlot outputSlot,
@@ -52,29 +58,55 @@ namespace VEPowersuit.Items
 
         private string VariantType => Variant["type"];
 
+        /// <summary>
+        /// Resolve a byType entry for this item without needing Newtonsoft or
+        /// WildcardUtil. These JSONs key on the variant suffix, so we probe the
+        /// keys this item could plausibly use, in order:
+        ///   "*-{type}"  (e.g. "*-creative" — the standard wildcard form)
+        ///   "{type}"    (bare variant value, legacy)
+        ///   "*"         (catch-all fallback)
+        /// Returns the first matching child JsonObject, or null.
+        /// </summary>
+        private JsonObject? ResolveByTypeEntry(JsonObject? byType)
+        {
+            if (byType == null || !byType.Exists || byType.IsArray()) return null;
+
+            string v = VariantType ?? string.Empty;
+
+            if (v.Length > 0)
+            {
+                var wild = byType["*-" + v];
+                if (wild != null && wild.Exists) return wild;
+
+                var bare = byType[v];
+                if (bare != null && bare.Exists) return bare;
+            }
+
+            var star = byType["*"];
+            if (star != null && star.Exists) return star;
+            return null;
+        }
+
         private bool ResolveFullChargeOnGet()
         {
-            var byType = Attributes?["fullChargeOnGetByType"];
-            if (byType != null && byType.Exists && !byType.IsArray())
-            {
-                string v = VariantType;
-                if (v != null && byType[v]?.Exists == true) return byType[v].AsBool(false);
-                if (byType["*"]?.Exists == true) return byType["*"].AsBool(false);
-            }
+            var entry = ResolveByTypeEntry(Attributes?["fullChargeOnGetByType"]);
+            if (entry != null && entry.Exists && !entry.IsArray()) return entry.AsBool(false);
+
             var plain = Attributes?["fullChargeOnGet"];
             return plain != null && plain.Exists && !plain.IsArray() && plain.AsBool(false);
         }
         private string[] ResolveDefaultModules()
         {
-            string[] empty = Array.Empty<string>();
-            JsonObject byType = Attributes["defaultModulesByType"];
-            if (byType != null && byType.Exists && !byType.IsArray())
-            {
-                string v = VariantType;
-                if (v != null && byType[v].Exists) return byType[v].AsArray<string>()!; //.AsArray<string>(Array.Empty<string>());
-                if (byType["*"]?.Exists == true) return byType["*"].AsArray<string>()!;
-            }
-            return Array.Empty<string>()!;
+            var entry = ResolveByTypeEntry(Attributes?["defaultModulesByType"]);
+            if (entry == null || !entry.Exists) return Array.Empty<string>();
+
+            string?[]? raw = entry.AsArray<string>();
+            if (raw == null) return Array.Empty<string>();
+
+            var list = new System.Collections.Generic.List<string>(raw.Length);
+            foreach (var s in raw)
+                if (!string.IsNullOrEmpty(s)) list.Add(s);
+            return list.ToArray();
         }
 
         // ---- tooltip: charge + installed modules ----
